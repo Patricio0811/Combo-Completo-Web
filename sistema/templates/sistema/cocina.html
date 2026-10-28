@@ -1,0 +1,9 @@
+{% extends "sistema/base.html" %}
+{% load static %}
+{% block titulo %}Cocina · El Combo Completo{% endblock %}
+{% block clase %}cocina{% endblock %}
+{% block contenido %}
+<div class="cab"><h1>Comandas</h1><p id="estado-red" class="suave" role="status">Conectando…</p></div>
+<div id="tablero" class="tablero" aria-live="polite"><p class="suave">Sin comandas pendientes.</p></div>
+{% endblock %}
+{% block js %}<script src="{% static 'sistema/cocina.js' %}"></script>{% endblock %}

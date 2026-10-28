@@ -1,0 +1,36 @@
+{% load static %}<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block titulo %}El Combo Completo{% endblock %}</title>
+<link rel="stylesheet" href="{% static 'sistema/app.css' %}">
+</head>
+<body class="{% block clase %}{% endblock %}">
+{% if user.is_authenticated %}
+<header class="barra">
+  <a class="marca" href="{% url 'inicio' %}">El Combo Completo</a>
+  <nav aria-label="Principal">
+    {% if user.rol == 'garzon' or user.rol == 'admin' %}<a href="{% url 'garzon' %}">Pedidos</a>{% endif %}
+    {% if user.rol == 'cocina' or user.rol == 'admin' %}<a href="{% url 'cocina' %}">Cocina</a>{% endif %}
+    {% if user.rol == 'cajero' or user.rol == 'admin' %}<a href="{% url 'caja' %}">Caja</a>{% endif %}
+    {% if user.rol == 'admin' %}
+      <a href="{% url 'inventario' %}">Inventario</a>
+      <a href="{% url 'reportes' %}">Reportes</a>
+      <a href="{% url 'auditoria' %}">Auditoría</a>
+      <a href="{% url 'admin:index' %}">Usuarios y roles</a>
+    {% endif %}
+  </nav>
+  <form method="post" action="{% url 'logout' %}" class="sesion">{% csrf_token %}
+    <span>{{ user.get_full_name|default:user.username }} · {{ user.get_rol_display }}</span>
+    <button class="btn chico">Salir</button>
+  </form>
+</header>
+{% endif %}
+<main>
+{% if messages %}<div class="avisos" role="status">{% for m in messages %}<p class="aviso {{ m.tags }}">{{ m }}</p>{% endfor %}</div>{% endif %}
+{% block contenido %}{% endblock %}
+</main>
+{% block js %}{% endblock %}
+</body>
+</html>

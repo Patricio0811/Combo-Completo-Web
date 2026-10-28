@@ -1,0 +1,8 @@
+{% extends "sistema/base.html" %}
+{% block contenido %}
+<section class="panel">
+  <h1>Sin permiso</h1>
+  <p>Tu rol ({{ user.get_rol_display }}) no puede abrir esta pantalla. Pide acceso al administrador.</p>
+  <a class="btn" href="{% url 'inicio' %}">Volver a mi pantalla</a>
+</section>
+{% endblock %}

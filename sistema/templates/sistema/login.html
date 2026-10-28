@@ -1,0 +1,15 @@
+{% extends "sistema/base.html" %}
+{% block titulo %}Ingresar · El Combo Completo{% endblock %}
+{% block clase %}centrado{% endblock %}
+{% block contenido %}
+<section class="panel acceso">
+  <h1>El Combo Completo</h1>
+  <p class="suave">Ingresa con tu usuario del local.</p>
+  {% if form.errors %}<p class="aviso error">Usuario o contraseña incorrectos.</p>{% endif %}
+  <form method="post">{% csrf_token %}
+    <label>Usuario <input name="username" autocomplete="username" autofocus required></label>
+    <label>Contraseña <input name="password" type="password" autocomplete="current-password" required></label>
+    <button class="btn primario grande">Ingresar</button>
+  </form>
+</section>
+{% endblock %}

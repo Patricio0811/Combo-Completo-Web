@@ -1,0 +1,28 @@
+{% extends "sistema/base.html" %}
+{% load sistema_extras %}
+{% block titulo %}Reportes · El Combo Completo{% endblock %}
+{% block contenido %}
+<h1>Reporte de ventas</h1>
+<form method="get" class="filtros panel">
+  <label>Desde <input type="date" name="desde" value="{{ desde|date:'Y-m-d' }}"></label>
+  <label>Hasta <input type="date" name="hasta" value="{{ hasta|date:'Y-m-d' }}"></label>
+  <label>Canal <select name="canal">
+    <option value="todos" {% if canal == 'todos' %}selected{% endif %}>Todos</option>
+    <option value="local" {% if canal == 'local' %}selected{% endif %}>Local</option>
+    <option value="retiro" {% if canal == 'retiro' %}selected{% endif %}>Retiro</option>
+    <option value="domicilio" {% if canal == 'domicilio' %}selected{% endif %}>Domicilio</option></select></label>
+  <button class="btn primario">Ver reporte</button>
+</form>
+<p class="resumen"><strong>${{ total|clp }}</strong> en {{ n }} pedido{{ n|pluralize }} (sin anulados)</p>
+<div class="dos">
+  <section class="panel"><h2>Por canal</h2>
+    <table><thead><tr><th>Canal</th><th class="num">Pedidos</th><th class="num">Ventas</th></tr></thead><tbody>
+    {% for c in por_canal %}<tr><td>{{ c.canal }}</td><td class="num">{{ c.pedidos }}</td><td class="num">${{ c.total|clp }}</td></tr>{% endfor %}</tbody></table></section>
+  <section class="panel"><h2>Por día</h2>
+    <table><thead><tr><th>Día</th><th class="num">Pedidos</th><th class="num">Ventas</th></tr></thead><tbody>
+    {% for d in por_dia %}<tr><td>{{ d.fecha_hora__date|date:"D d/m" }}</td><td class="num">{{ d.n }}</td><td class="num">${{ d.t|clp }}</td></tr>
+    {% empty %}<tr><td colspan="3" class="suave">Sin ventas en el período.</td></tr>{% endfor %}</tbody></table></section>
+</div>
+<section class="panel"><h2>Más vendidos</h2>
+  <ol>{% for t in top %}<li>{{ t.detalles__producto__nombre }} · {{ t.c }} un.</li>{% empty %}<li class="suave">Sin datos.</li>{% endfor %}</ol></section>
+{% endblock %}

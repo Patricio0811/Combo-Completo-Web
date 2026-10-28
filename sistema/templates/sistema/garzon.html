@@ -1,0 +1,42 @@
+{% extends "sistema/base.html" %}
+{% load static %}
+{% block titulo %}Nuevo pedido · El Combo Completo{% endblock %}
+{% block clase %}toma{% endblock %}
+{% block contenido %}
+<div id="listos" class="listos" aria-live="polite" hidden></div>
+<div class="toma-grid">
+  <section>
+    <h1>Nuevo pedido</h1>
+    <fieldset class="canales">
+      <legend>1. Canal de venta (obligatorio)</legend>
+      <label><input type="radio" name="canal" value="local"><span>Local</span></label>
+      <label><input type="radio" name="canal" value="retiro"><span>Retiro</span></label>
+      <label><input type="radio" name="canal" value="domicilio"><span>Domicilio</span></label>
+    </fieldset>
+    <div id="datos-canal" class="datos" hidden>
+      <div data-canal="local"><label>Número de mesa <input id="f-mesa" inputmode="numeric" maxlength="3"></label></div>
+      <div data-canal="retiro"><label>Nombre de quien retira <input id="f-retiro" maxlength="100"></label></div>
+      <div data-canal="domicilio" class="fila">
+        <label>Nombre <input id="f-dnombre" maxlength="100"></label>
+        <label>Teléfono <input id="f-dtel" inputmode="tel" maxlength="20"></label>
+        <label>Dirección <input id="f-ddir" maxlength="200"></label>
+        <label>Costo de envío <input id="f-denvio" inputmode="numeric" value="0"></label>
+      </div>
+    </div>
+    <h2>2. Productos</h2>
+    <div class="productos" id="productos"></div>
+  </section>
+  <aside class="comanda panel" aria-label="Comanda">
+    <h2>Comanda</h2>
+    <ul id="lineas" class="lineas"><li class="suave">Aún no hay productos.</li></ul>
+    <label>Observaciones <input id="f-obs" maxlength="200" placeholder="Sin cebolla, etc."></label>
+    <p class="total">Total <strong id="total">$0</strong></p>
+    <p id="motivo" class="suave" role="status">Elige el canal y al menos un producto.</p>
+    <button id="enviar" class="btn primario grande" disabled>Enviar a cocina</button>
+    <p id="cronometro" class="suave"></p>
+    <p id="error" class="aviso error" hidden></p>
+  </aside>
+</div>
+{{ productos|json_script:"datos-productos" }}
+{% endblock %}
+{% block js %}<script src="{% static 'sistema/garzon.js' %}"></script>{% endblock %}

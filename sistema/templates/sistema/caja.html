@@ -1,0 +1,39 @@
+{% extends "sistema/base.html" %}
+{% load sistema_extras %}
+{% block titulo %}Caja · El Combo Completo{% endblock %}
+{% block contenido %}
+<h1>Caja</h1>
+<div class="dos">
+<section class="panel">
+  <h2>Pedidos por cobrar</h2>
+  {% for p in pendientes %}
+  <article class="cobro">
+    <header><strong>#{{ p.pk }}</strong> {{ p.canal }} · {{ p.referencia }} <span class="suave">{{ p.fecha_hora|time:"H:i" }}</span></header>
+    <p>Saldo <strong>${{ p.saldo|clp }}</strong> de ${{ p.total|clp }}</p>
+    <form method="post" class="en-linea">{% csrf_token %}<input type="hidden" name="accion" value="pago"><input type="hidden" name="pedido" value="{{ p.pk }}">
+      <select name="metodo" aria-label="Método de pago">{% for v, n in metodos %}<option value="{{ v }}">{{ n }}</option>{% endfor %}</select>
+      <input name="monto" inputmode="numeric" value="{{ p.saldo|floatformat:'0' }}" size="8" aria-label="Monto">
+      <button class="btn primario chico">Registrar pago</button></form>
+    {% if user.rol == 'admin' %}
+    <form method="post" class="en-linea">{% csrf_token %}<input type="hidden" name="accion" value="anular"><input type="hidden" name="pedido" value="{{ p.pk }}">
+      <input name="motivo" placeholder="Motivo de anulación" aria-label="Motivo de anulación" required><button class="btn peligro chico">Anular pedido</button></form>
+    {% endif %}
+  </article>
+  {% empty %}<p class="suave">No hay pedidos con saldo pendiente.</p>{% endfor %}
+</section>
+<section class="panel">
+  <h2>Cierre de caja</h2>
+  <p class="suave">Cuenta lo que hay en cada medio de pago e ingrésalo. El sistema compara con lo registrado desde el último cierre.</p>
+  <form method="post">{% csrf_token %}<input type="hidden" name="accion" value="cierre">
+    <table><thead><tr><th>Medio</th><th class="num">Registrado</th><th class="num">Contado</th></tr></thead><tbody>
+    {% for m, nombre, monto in esperado %}<tr><td>{{ nombre }}</td><td class="num">${{ monto|clp }}</td>
+      <td class="num"><input name="contado_{{ m }}" inputmode="numeric" size="9" value="0" aria-label="Contado en {{ nombre }}"></td></tr>{% endfor %}
+    </tbody><tfoot><tr><th>Total</th><th class="num">${{ total_esperado|clp }}</th><th></th></tr></tfoot></table>
+    <button class="btn primario grande" onclick="return confirm('¿Cerrar la caja? Los pagos registrados quedarán incluidos en este cierre.')">Cerrar caja</button>
+  </form>
+  {% if cierres %}<h3>Últimos cierres</h3><ul class="plano">{% for c in cierres %}
+    <li>{{ c.fecha_hora|date:"d/m H:i" }} · {{ c.usuario.username }} · diferencia
+      <span class="{% if c.diferencia == 0 %}bien{% else %}mal{% endif %}">${{ c.diferencia|clp }}</span></li>{% endfor %}</ul>{% endif %}
+</section>
+</div>
+{% endblock %}
