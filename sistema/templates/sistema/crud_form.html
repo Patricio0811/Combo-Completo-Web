@@ -1,0 +1,12 @@
+{% extends "sistema/base.html" %}
+{% block titulo %}{{ etiqueta }} · El Combo Completo{% endblock %}
+{% block contenido %}
+<h1>{% if object %}Editar{% else %}Nuevo{% endif %} {{ etiqueta|lower }}</h1>
+<section class="panel">
+  <form method="post" novalidate>{% csrf_token %}
+    {{ form.as_p }}
+    <button class="btn primario">Guardar</button>
+    <a class="btn" href="{{ volver }}">Cancelar</a>
+  </form>
+</section>
+{% endblock %}

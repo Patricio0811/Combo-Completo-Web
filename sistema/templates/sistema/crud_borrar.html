@@ -1,0 +1,12 @@
+{% extends "sistema/base.html" %}
+{% block titulo %}Eliminar · El Combo Completo{% endblock %}
+{% block contenido %}
+<h1>Eliminar {{ etiqueta|lower }}</h1>
+<section class="panel">
+  <p>¿Eliminar «{{ object }}»? Esta acción no se puede deshacer.</p>
+  <form method="post">{% csrf_token %}
+    <button class="btn primario">Sí, eliminar</button>
+    <a class="btn" href="{{ volver }}">Cancelar</a>
+  </form>
+</section>
+{% endblock %}

@@ -13,16 +13,21 @@
     <option value="domicilio" {% if canal == 'domicilio' %}selected{% endif %}>Domicilio</option></select></label>
   <button class="btn primario">Ver reporte</button>
 </form>
-<p class="resumen"><strong>${{ total|clp }}</strong> en {{ n }} pedido{{ n|pluralize }} (sin anulados)</p>
+<p class="resumen"><strong>${{ total|clp }}</strong> en {{ n }} pedido{{ n|pluralize }} (sin anulados) · Ticket promedio <strong>${{ ticket_promedio|clp }}</strong></p>
 <div class="dos">
   <section class="panel"><h2>Por canal</h2>
     <table><thead><tr><th>Canal</th><th class="num">Pedidos</th><th class="num">Ventas</th></tr></thead><tbody>
     {% for c in por_canal %}<tr><td>{{ c.canal }}</td><td class="num">{{ c.pedidos }}</td><td class="num">${{ c.total|clp }}</td></tr>{% endfor %}</tbody></table></section>
   <section class="panel"><h2>Por día</h2>
     <table><thead><tr><th>Día</th><th class="num">Pedidos</th><th class="num">Ventas</th></tr></thead><tbody>
-    {% for d in por_dia %}<tr><td>{{ d.fecha_hora__date|date:"D d/m" }}</td><td class="num">{{ d.n }}</td><td class="num">${{ d.t|clp }}</td></tr>
+    {% for d in por_dia %}<tr><td>{{ d.fecha_hora__date|date:"D d/m" }}</td><td class="num">{{ d.n }}</td><td class="num">${{ d.t|clp }}
+      <div style="background:#e0a030;height:6px;border-radius:3px;margin-top:4px;width:{% widthratio d.t max_dia 100 %}%"></div></td></tr>
     {% empty %}<tr><td colspan="3" class="suave">Sin ventas en el período.</td></tr>{% endfor %}</tbody></table></section>
 </div>
+<section class="panel"><h2>Por medio de pago</h2>
+  <table><thead><tr><th>Medio</th><th class="num">Pagos</th><th class="num">Monto</th></tr></thead><tbody>
+  {% for m in por_metodo %}<tr><td>{{ m.metodo }}</td><td class="num">{{ m.n }}</td><td class="num">${{ m.t|clp }}</td></tr>
+  {% empty %}<tr><td colspan="3" class="suave">Sin pagos en el período.</td></tr>{% endfor %}</tbody></table></section>
 <section class="panel"><h2>Más vendidos</h2>
   <ol>{% for t in top %}<li>{{ t.detalles__producto__nombre }} · {{ t.c }} un.</li>{% empty %}<li class="suave">Sin datos.</li>{% endfor %}</ol></section>
 {% endblock %}

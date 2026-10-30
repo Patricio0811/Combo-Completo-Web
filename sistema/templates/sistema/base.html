@@ -15,6 +15,7 @@
     {% if user.rol == 'cocina' or user.rol == 'admin' %}<a href="{% url 'cocina' %}">Cocina</a>{% endif %}
     {% if user.rol == 'cajero' or user.rol == 'admin' %}<a href="{% url 'caja' %}">Caja</a>{% endif %}
     {% if user.rol == 'admin' %}
+      <a href="{% url 'productos' %}">Productos</a>
       <a href="{% url 'inventario' %}">Inventario</a>
       <a href="{% url 'reportes' %}">Reportes</a>
       <a href="{% url 'auditoria' %}">Auditoría</a>

@@ -2,6 +2,7 @@
 {% block titulo %}Inventario · El Combo Completo{% endblock %}
 {% block contenido %}
 <h1>Inventario</h1>
+<p><a class="btn primario" href="{% url 'insumo_crear' %}">Nuevo insumo</a></p>
 {% if alertas %}
 <section class="panel alerta">
   <h2>Insumos bajo el mínimo</h2>
@@ -12,7 +13,7 @@
 </section>
 {% endif %}
 <div class="tabla-w"><table>
-  <thead><tr><th>Insumo</th><th class="num">Stock</th><th class="num">Mínimo</th><th>Estado</th><th>Registrar entrada</th><th>Ajuste manual (queda en auditoría)</th></tr></thead>
+  <thead><tr><th>Insumo</th><th class="num">Stock</th><th class="num">Mínimo</th><th>Estado</th><th>Registrar entrada</th><th>Ajuste manual (queda en auditoría)</th><th></th></tr></thead>
   <tbody>{% for i in insumos %}
   <tr>
     <td>{{ i.nombre }}</td>
@@ -24,6 +25,7 @@
     <td><form method="post" class="en-linea">{% csrf_token %}<input type="hidden" name="accion" value="ajuste"><input type="hidden" name="insumo" value="{{ i.pk }}">
       <input name="nuevo" inputmode="decimal" size="6" placeholder="Nuevo stock" aria-label="Nuevo stock de {{ i.nombre }}" required>
       <input name="motivo" placeholder="Motivo" aria-label="Motivo del ajuste de {{ i.nombre }}" required><button class="btn chico">Ajustar</button></form></td>
-  </tr>{% empty %}<tr><td colspan="6" class="suave">No hay insumos. Créalos desde Usuarios y roles (panel de administración) o con el comando cargar_datos.</td></tr>{% endfor %}</tbody>
+    <td><a class="btn chico" href="{% url 'insumo_editar' i.pk %}">Editar</a> <a class="btn chico" href="{% url 'insumo_eliminar' i.pk %}">Eliminar</a></td>
+  </tr>{% empty %}<tr><td colspan="7" class="suave">No hay insumos. Créalos desde Usuarios y roles (panel de administración) o con el comando cargar_datos.</td></tr>{% endfor %}</tbody>
 </table></div>
 {% endblock %}
