@@ -1,0 +1,14 @@
+{% extends "sistema/base.html" %}
+{% block titulo %}Crear cuenta · El Combo Completo{% endblock %}
+{% block clase %}centrado{% endblock %}
+{% block contenido %}
+<section class="panel acceso">
+  <h1>Crear cuenta</h1>
+  <p class="suave">Tu cuenta nace con rol Garzón; un administrador puede cambiarlo.</p>
+  <form method="post" novalidate>{% csrf_token %}
+    {{ form.as_p }}
+    <button class="btn primario grande">Registrarme</button>
+  </form>
+  <p class="suave"><a href="{% url 'login' %}">Ya tengo cuenta</a></p>
+</section>
+{% endblock %}

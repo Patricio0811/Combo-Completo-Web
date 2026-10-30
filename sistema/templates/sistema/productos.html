@@ -1,0 +1,16 @@
+{% extends "sistema/base.html" %}
+{% load sistema_extras %}
+{% block titulo %}Productos · El Combo Completo{% endblock %}
+{% block contenido %}
+<h1>Productos</h1>
+<p><a class="btn primario" href="{% url 'producto_crear' %}">Nuevo producto</a></p>
+<div class="tabla-w"><table>
+  <thead><tr><th>Producto</th><th class="num">Precio</th><th class="num">Insumos en receta</th><th>Estado</th><th></th></tr></thead>
+  <tbody>{% for p in productos %}
+  <tr><td>{{ p.nombre }}</td><td class="num">${{ p.precio|clp }}</td><td class="num">{{ p.n_insumos }}</td>
+    <td>{% if p.activo %}<span class="etq bien">Activo</span>{% else %}<span class="etq mal">Inactivo</span>{% endif %}</td>
+    <td><a class="btn chico" href="{% url 'producto_editar' p.pk %}">Editar</a>
+        <a class="btn chico" href="{% url 'producto_eliminar' p.pk %}">Eliminar</a></td></tr>
+  {% empty %}<tr><td colspan="5" class="suave">No hay productos.</td></tr>{% endfor %}</tbody>
+</table></div>
+{% endblock %}

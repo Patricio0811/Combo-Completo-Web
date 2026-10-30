@@ -133,3 +133,58 @@ class CajaYReportesTests(Base):
         self.assertEqual(RegistroAuditoria.objects.get(accion="ajuste_stock").detalle["motivo"], "merma")
         with self.assertRaises(services.ErrorNegocio):
             services.ajustar_stock(self.pan, Decimal(5), self.admin, " ")
+
+
+class CrudRegistroReportesTests(Base):
+    def test_registro_crea_garzon_y_entra(self):
+        r = self.client.post(reverse("registro"), {"username": "nuevo", "password1": "Clave-segura-9", "password2": "Clave-segura-9"})
+        self.assertEqual(r.status_code, 302)
+        u = Usuario.objects.get(username="nuevo")
+        self.assertEqual(u.rol, "garzon")
+        self.assertEqual(int(self.client.session["_auth_user_id"]), u.pk)
+
+    def test_registro_no_permite_elegir_rol(self):
+        self.client.post(reverse("registro"), {"username": "x", "password1": "Clave-segura-9", "password2": "Clave-segura-9", "rol": "admin"})
+        self.assertEqual(Usuario.objects.get(username="x").rol, "garzon")
+
+    def test_crud_producto_solo_admin(self):
+        self.client.force_login(self.garzon)
+        self.assertEqual(self.client.get(reverse("productos")).status_code, 403)
+        self.client.force_login(self.admin)
+        r = self.client.post(reverse("producto_crear"), {"nombre": "Churrasco", "precio": "5000", "activo": "on"})
+        self.assertEqual(r.status_code, 302)
+        p = Producto.objects.get(nombre="Churrasco")
+        self.client.post(reverse("producto_editar", args=[p.pk]), {"nombre": "Churrasco", "precio": "5500", "activo": "on"})
+        p.refresh_from_db()
+        self.assertEqual(p.precio, 5500)
+        self.client.post(reverse("producto_eliminar", args=[p.pk]))
+        self.assertFalse(Producto.objects.filter(pk=p.pk).exists())
+
+    def test_validaciones_producto_e_insumo(self):
+        self.client.force_login(self.admin)
+        r = self.client.post(reverse("producto_crear"), {"nombre": "Completo", "precio": "0"})
+        self.assertContains(r, "Ya existe un producto")
+        self.assertContains(r, "mayor que cero")
+        r = self.client.post(reverse("insumo_crear"), {"nombre": "Sal", "unidad": "kg", "stock_actual": "-1", "stock_minimo": "0"})
+        self.assertContains(r, "no puede ser negativo")
+
+    def test_no_elimina_producto_con_pedidos(self):
+        self.pedir()
+        self.client.force_login(self.admin)
+        self.client.post(reverse("producto_eliminar", args=[self.prod.pk]))
+        self.assertTrue(Producto.objects.filter(pk=self.prod.pk).exists())
+
+    def test_reportes_muestra_metricas(self):
+        self.pedir()
+        self.client.force_login(self.admin)
+        r = self.client.get(reverse("reportes"))
+        self.assertContains(r, "Ticket promedio")
+        self.assertEqual(r.context["n"], 1)
+        self.assertEqual(r.context["por_canal"][0]["pedidos"], 1)
+
+    def test_caja_lista_solo_saldo_pendiente(self):
+        p = self.pedir()
+        self.client.force_login(self.cajero)
+        self.assertEqual(len(self.client.get(reverse("caja")).context["pendientes"]), 1)
+        services.registrar_pago(p, "efectivo", p.total, self.cajero)
+        self.assertEqual(len(self.client.get(reverse("caja")).context["pendientes"]), 0)

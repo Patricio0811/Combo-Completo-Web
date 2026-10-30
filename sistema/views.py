@@ -3,7 +3,8 @@ from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
-from django.db.models import Count, Sum
+from django.db.models import Avg, Count, DecimalField, F, Q, Sum, Value
+from django.db.models.functions import Coalesce
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -78,17 +79,19 @@ def cocina(request):
 def api_comandas(request):
     """Ordenadas por hora de llegada. La pantalla consulta cada 2 s (RNF03: menos de 4 s)."""
     comandas = (Comanda.objects.exclude(estado="lista").exclude(pedido__estado="anulado")
-                .select_related("pedido").order_by("hora_llegada"))
+                .select_related("pedido", "pedido__pedidolocal", "pedido__pedidoretiro",
+                                "pedido__pedidodomicilio__cliente")
+                .prefetch_related("pedido__detalles__producto").order_by("hora_llegada"))
     ahora = timezone.now()
     data = []
     for c in comandas:
-        p = Pedido.objects.get(pk=c.pedido_id)
+        p = c.pedido
         data.append({
             "id": c.pk, "pedido": p.pk, "canal": p.canal, "ref": p.referencia,
             "estado": c.estado, "obs": p.observaciones,
             "segundos": int((ahora - c.hora_llegada).total_seconds()),
             "hora": timezone.localtime(c.hora_llegada).strftime("%H:%M"),
-            "items": [{"n": d.producto.nombre, "c": d.cantidad} for d in p.detalles.select_related("producto")],
+            "items": [{"n": d.producto.nombre, "c": d.cantidad} for d in p.detalles.all()],
         })
     return JsonResponse({"comandas": data})
 
@@ -155,8 +158,11 @@ def caja(request):
         except ErrorNegocio as e:
             messages.error(request, str(e))
         return redirect("caja")
-    pendientes = [p for p in Pedido.objects.exclude(estado="anulado")
-                  .filter(fecha_hora__gte=timezone.now() - timedelta(days=1)) if p.saldo() > 0]
+    pendientes = (Pedido.objects.exclude(estado="anulado")
+                  .filter(fecha_hora__gte=timezone.now() - timedelta(days=1))
+                  .annotate(cobrado=Coalesce(Sum("pagos__monto"), Value(0), output_field=DecimalField()))
+                  .filter(total__gt=F("cobrado"))
+                  .select_related("pedidolocal", "pedidoretiro", "pedidodomicilio__cliente"))
     esperado = services.resumen_caja()
     return render(request, "sistema/caja.html", {
         "pendientes": pendientes, "metodos": Pago.Metodo.choices,
@@ -177,14 +183,28 @@ def reportes(request):
     filtro = {"local": "pedidolocal", "retiro": "pedidoretiro", "domicilio": "pedidodomicilio"}
     if canal in filtro:
         qs = qs.filter(**{f"{filtro[canal]}__isnull": False})
-    por_canal = [{"canal": n, "pedidos": (c := qs.filter(**{f"{f}__isnull": False})).count(),
-                  "total": c.aggregate(t=Sum("total"))["t"] or 0} for n, f in
-                 (("Local", "pedidolocal"), ("Retiro", "pedidoretiro"), ("Domicilio", "pedidodomicilio"))]
+    agg = qs.aggregate(
+        pedidos_local=Count("id", filter=Q(pedidolocal__isnull=False)),
+        total_local=Sum("total", filter=Q(pedidolocal__isnull=False)),
+        pedidos_retiro=Count("id", filter=Q(pedidoretiro__isnull=False)),
+        total_retiro=Sum("total", filter=Q(pedidoretiro__isnull=False)),
+        pedidos_domicilio=Count("id", filter=Q(pedidodomicilio__isnull=False)),
+        total_domicilio=Sum("total", filter=Q(pedidodomicilio__isnull=False)),
+        ticket_promedio=Avg("total"),
+    )
+    por_canal = [{"canal": n, "pedidos": agg[f"pedidos_{k}"], "total": agg[f"total_{k}"] or 0}
+                 for n, k in (("Local", "local"), ("Retiro", "retiro"), ("Domicilio", "domicilio"))]
+    por_metodo = (Pago.objects.filter(pedido__in=qs).values("metodo")
+                  .annotate(n=Count("id"), t=Sum("monto")).order_by("-t"))
+    nombres = dict(Pago.Metodo.choices)
+    por_metodo = [{"metodo": nombres.get(m["metodo"], m["metodo"]), "n": m["n"], "t": m["t"]} for m in por_metodo]
     por_dia = (qs.values("fecha_hora__date").annotate(n=Count("id"), t=Sum("total")).order_by("fecha_hora__date"))
     total = qs.aggregate(t=Sum("total"))["t"] or 0
     return render(request, "sistema/reportes.html", {
         "desde": desde, "hasta": hasta, "canal": canal, "por_canal": por_canal,
         "por_dia": por_dia, "total": total, "n": qs.count(),
+        "ticket_promedio": agg["ticket_promedio"] or 0, "por_metodo": por_metodo,
+        "max_dia": max((d["t"] for d in por_dia), default=0) or 1,
         "top": (qs.values("detalles__producto__nombre").annotate(c=Sum("detalles__cantidad"))
                 .order_by("-c")[:5]),
     })
