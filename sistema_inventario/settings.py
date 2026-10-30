@@ -95,7 +95,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'combo_completo',
         'USER': 'postgres',
-        'PASSWORD': 'LA_CLAVE_QUE_PUSISTE',
+        'PASSWORD': 'pato0811',
         'HOST': 'localhost',
         'PORT': '5432',
     }
