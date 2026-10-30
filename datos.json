@@ -1,0 +1,82 @@
+[
+{
+  "model": "sessions.session",
+  "pk": "e54ysy42w7ncijak1w8uqgho0sbp1j0t",
+  "fields": {
+    "session_data": ".eJxVjEEOwiAQRe_C2hAcykBduvcMZGBAqgaS0q6Md7dNutDte-__t_C0LsWvPc1-YnERZ3H6ZYHiM9Vd8IPqvcnY6jJPQe6JPGyXt8bpdT3av4NCvWxry2rEATG5kO0ICh2giWjVYK0FYpVDNuw0bUA7h1EnRjAABCpzcuLzBbctNvo:1xM286:XeX-LNlFSMxCllCFM00QHozV8ZP0m4f7yui1NvplFn0",
+    "expire_date": "2026-11-11T11:47:42.654Z"
+  }
+},
+{
+  "model": "sistema.usuario",
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$L6KEvAcGLb38u8e2gme3Pn$Hf4v/sWrYTq1ZEx1dEKzJaC+XBT7bld00oNVon2OOFY=",
+    "last_login": "2026-10-28T11:47:43.475Z",
+    "is_superuser": false,
+    "username": "garzon",
+    "first_name": "Garz�n de prueba",
+    "last_name": "",
+    "email": "",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-10-28T11:35:11.135Z",
+    "rol": "garzon",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "sistema.usuario",
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$Kav8cqpOxxv0v2mxKi1QcS$1+D+M6Y5uz3jx4cU7MWtiZnMzst0oxDn78B12kFgOEQ=",
+    "last_login": "2026-10-28T11:36:28.282Z",
+    "is_superuser": false,
+    "username": "cocina",
+    "first_name": "Cocina de prueba",
+    "last_name": "",
+    "email": "",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-10-28T11:35:12.384Z",
+    "rol": "cocina",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "sistema.usuario",
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$Y12mtxLVGjRgT16Lw7Pc3G$ALdDhMHWl/7o4daZ04ZBuT6hlNKRCNnULklckrzs9PQ=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "cajero",
+    "first_name": "Cajero de prueba",
+    "last_name": "",
+    "email": "",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-10-28T11:35:13.565Z",
+    "rol": "cajero",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "sistema.usuario",
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$6E3DsdYaf5yoTmNirYlQOu$/TjEj0o/ZA0IvyHimJ0ru+4VnzDINOnw7Ts2sAV4b4w=",
+    "last_login": "2026-10-29T15:42:42.263Z",
+    "is_superuser": true,
+    "username": "admin",
+    "first_name": "Administrador de prueba",
+    "last_name": "",
+    "email": "",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-10-28T11:35:14.748Z",
+    "rol": "admin",
+    "groups": [],
+    "user_permissions": []
+  }
+}
+]
