@@ -91,10 +91,14 @@ WSGI_APPLICATION = 'sistema_inventario.wsgi.application'
 # Producción/PostgreSQL: DATABASE_URL=postgres://usuario:clave@host:5432/base
 # Sin DATABASE_URL se usa SQLite (desarrollo local).
 DATABASES = {
-    'default': dj_database_url.config(
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
-        conn_max_age=600,
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'combo_completo',
+        'USER': 'postgres',
+        'PASSWORD': 'LA_CLAVE_QUE_PUSISTE',
+        'HOST': 'localhost',
+        'PORT': '5432',
+    }
 }
 
 # Igual que 0001_initial (BigAutoField): no genera migraciones nuevas
