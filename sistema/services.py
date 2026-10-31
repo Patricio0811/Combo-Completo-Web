@@ -1,4 +1,5 @@
 """Reglas de negocio. Las vistas solo validan permisos y llaman a estas funciones."""
+import re
 from decimal import Decimal
 
 from django.db import transaction
@@ -17,6 +18,26 @@ class ErrorNegocio(Exception):
     pass
 
 
+_ENTERO = re.compile(r"^\d{1,9}$")
+_DECIMAL = re.compile(r"^\d{1,9}([.,]\d{1,2})?$")
+
+
+def leer_entero(valor, campo="El valor"):
+    """Dinero en pesos: solo dígitos. Rechaza letras, símbolos, negativos, 'NaN' y notación científica."""
+    texto = str(valor if valor is not None else "").strip()
+    if not _ENTERO.match(texto):
+        raise ErrorNegocio(f"{campo}: escribe solo números enteros, sin letras, puntos ni símbolos.")
+    return Decimal(texto)
+
+
+def leer_decimal(valor, campo="El valor"):
+    """Cantidades de insumos: dígitos y, opcionalmente, coma o punto con hasta 2 decimales."""
+    texto = str(valor if valor is not None else "").strip()
+    if not _DECIMAL.match(texto):
+        raise ErrorNegocio(f"{campo}: escribe solo números (puedes usar coma para decimales), sin letras ni símbolos.")
+    return Decimal(texto.replace(",", "."))
+
+
 def auditar(usuario, accion, **detalle):
     RegistroAuditoria.objects.create(usuario=usuario, accion=accion, detalle=detalle)
 
@@ -33,7 +54,7 @@ def crear_pedido(usuario, canal, datos, items, observaciones=""):
     base = {"usuario": usuario, "observaciones": (observaciones or "")[:200]}
     if canal == "local":
         mesa = str(datos.get("mesa", "")).strip()
-        if not mesa.isdigit():
+        if not _ENTERO.match(mesa):
             raise ErrorNegocio("Indica el número de mesa.")
         pedido = PedidoLocal.objects.create(numero_mesa=int(mesa), **base)
     elif canal == "retiro":
@@ -45,9 +66,7 @@ def crear_pedido(usuario, canal, datos, items, observaciones=""):
         nombre, tel, dire = (str(datos.get(k, "")).strip() for k in ("nombre", "telefono", "direccion"))
         if not (nombre and tel and dire):
             raise ErrorNegocio("Para Domicilio indica nombre, teléfono y dirección.")
-        envio = Decimal(str(datos.get("envio") or 0))
-        if envio < 0:
-            raise ErrorNegocio("El costo de envío no puede ser negativo.")
+        envio = leer_entero(datos.get("envio") or "0", "Costo de envío")
         cliente = Cliente.objects.create(nombre=nombre[:100], telefono=tel, direccion=dire)
         pedido = PedidoDomicilio.objects.create(cliente=cliente, costo_envio=envio, **base)
 
@@ -149,7 +168,7 @@ def cerrar_caja(usuario, contados):
     esperados = resumen_caja()
     desglose, esp_total, con_total = {}, Decimal(0), Decimal(0)
     for metodo, esperado in esperados.items():
-        contado = Decimal(str(contados.get(metodo) or 0))
+        contado = leer_entero(contados.get(metodo) or "0", f"Contado en {metodo}")
         desglose[metodo] = {"esperado": str(esperado), "contado": str(contado), "diferencia": str(contado - esperado)}
         esp_total += esperado
         con_total += contado

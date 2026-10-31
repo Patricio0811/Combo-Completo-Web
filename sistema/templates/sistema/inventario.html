@@ -1,7 +1,8 @@
 {% extends "sistema/base.html" %}
 {% block titulo %}Inventario · El Combo Completo{% endblock %}
 {% block contenido %}
-<h1>Inventario</h1>
+<header class="encabezado"><h1>Inventario</h1><p class="guia">Revisa el stock de cada insumo. Registra las compras en «Ingresar» y corrige diferencias en «Ajuste manual» (queda en auditoría). Para crear, editar o eliminar un insumo usa los botones de la fila.</p></header>
+<p><a class="btn primario" href="{% url 'insumo_crear' %}">Nuevo insumo</a></p>
 <p><a class="btn primario" href="{% url 'insumo_crear' %}">Nuevo insumo</a></p>
 {% if alertas %}
 <section class="panel alerta">
@@ -13,7 +14,7 @@
 </section>
 {% endif %}
 <div class="tabla-w"><table>
-  <thead><tr><th>Insumo</th><th class="num">Stock</th><th class="num">Mínimo</th><th>Estado</th><th>Registrar entrada</th><th>Ajuste manual (queda en auditoría)</th><th></th></tr></thead>
+  <thead><tr><th>Insumo</th><th class="num">Stock</th><th class="num">Mínimo</th><th>Estado</th><th>Registrar entrada</th><th>Ajuste manual (queda en auditoría)</th><th>Insumo</th></tr></thead>
   <tbody>{% for i in insumos %}
   <tr>
     <td>{{ i.nombre }}</td>
@@ -21,11 +22,11 @@
     <td class="num">{{ i.stock_minimo|floatformat:"-2" }}</td>
     <td>{% if i.bajo_minimo %}<span class="etq mal">Bajo el mínimo</span>{% else %}<span class="etq bien">Suficiente</span>{% endif %}</td>
     <td><form method="post" class="en-linea">{% csrf_token %}<input type="hidden" name="accion" value="entrada"><input type="hidden" name="insumo" value="{{ i.pk }}">
-      <input name="cantidad" inputmode="decimal" size="6" aria-label="Cantidad a ingresar de {{ i.nombre }}" required><button class="btn chico">Ingresar</button></form></td>
+      <input name="cantidad" data-tipo="decimal" inputmode="decimal" size="6" maxlength="12" placeholder="Cantidad" aria-label="Cantidad a ingresar de {{ i.nombre }}" required><button class="btn chico">Ingresar</button></form></td>
     <td><form method="post" class="en-linea">{% csrf_token %}<input type="hidden" name="accion" value="ajuste"><input type="hidden" name="insumo" value="{{ i.pk }}">
-      <input name="nuevo" inputmode="decimal" size="6" placeholder="Nuevo stock" aria-label="Nuevo stock de {{ i.nombre }}" required>
-      <input name="motivo" placeholder="Motivo" aria-label="Motivo del ajuste de {{ i.nombre }}" required><button class="btn chico">Ajustar</button></form></td>
-    <td><a class="btn chico" href="{% url 'insumo_editar' i.pk %}">Editar</a> <a class="btn chico" href="{% url 'insumo_eliminar' i.pk %}">Eliminar</a></td>
-  </tr>{% empty %}<tr><td colspan="7" class="suave">No hay insumos. Créalos desde Usuarios y roles (panel de administración) o con el comando cargar_datos.</td></tr>{% endfor %}</tbody>
+      <input name="nuevo" data-tipo="decimal" inputmode="decimal" size="6" maxlength="12" placeholder="Nuevo stock" aria-label="Nuevo stock de {{ i.nombre }}" required>
+      <input name="motivo" placeholder="Motivo" aria-label="Motivo del ajuste de {{ i.nombre }}" required><button class="btn chico peligro">Ajustar</button></form></td>
+    <td><a class="btn chico" href="{% url 'insumo_editar' i.pk %}">Editar</a> <a class="btn chico peligro" href="{% url 'insumo_eliminar' i.pk %}">Eliminar</a></td>
+  </tr>{% empty %}<tr><td colspan="7" class="vacio">No hay insumos. Crea el primero con «Nuevo insumo».</td></tr>{% endfor %}</tbody>
 </table></div>
 {% endblock %}

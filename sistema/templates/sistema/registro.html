@@ -6,7 +6,14 @@
   <h1>Crear cuenta</h1>
   <p class="suave">Tu cuenta nace con rol Garzón; un administrador puede cambiarlo.</p>
   <form method="post" novalidate>{% csrf_token %}
-    {{ form.as_p }}
+    {% for campo in form %}
+    <div class="campo{% if campo.errors %} con-error{% endif %}">
+      <label for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+      {{ campo }}
+      {% if campo.help_text %}<span class="ayuda">{{ campo.help_text|safe }}</span>{% endif %}
+      {% for e in campo.errors %}<span class="aviso-campo">{{ e }}</span>{% endfor %}
+    </div>
+    {% endfor %}
     <button class="btn primario grande">Registrarme</button>
   </form>
   <p class="suave"><a href="{% url 'login' %}">Ya tengo cuenta</a></p>

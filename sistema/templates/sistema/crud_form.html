@@ -1,12 +1,22 @@
 {% extends "sistema/base.html" %}
 {% block titulo %}{{ etiqueta }} · El Combo Completo{% endblock %}
 {% block contenido %}
-<h1>{% if object %}Editar{% else %}Nuevo{% endif %} {{ etiqueta|lower }}</h1>
-<section class="panel">
+<header class="encabezado">
+  <h1>{% if object %}Editar{% else %}Nuevo{% endif %} {{ etiqueta|lower }}</h1>
+  <p class="guia">Completa los campos y presiona Guardar. Los montos y cantidades aceptan solo números.</p>
+</header>
+<section class="panel formulario">
   <form method="post" novalidate>{% csrf_token %}
-    {{ form.as_p }}
-    <button class="btn primario">Guardar</button>
-    <a class="btn" href="{{ volver }}">Cancelar</a>
+    {% if form.non_field_errors %}<p class="aviso error">{{ form.non_field_errors|join:" " }}</p>{% endif %}
+    {% for campo in form %}
+    <div class="campo{% if campo.errors %} con-error{% endif %}">
+      <label for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+      {{ campo }}
+      {% if campo.help_text %}<span class="ayuda">{{ campo.help_text }}</span>{% endif %}
+      {% for e in campo.errors %}<span class="aviso-campo">{{ e }}</span>{% endfor %}
+    </div>
+    {% endfor %}
+    <div class="en-linea"><button class="btn primario">Guardar</button> <a class="btn" href="{{ volver }}">Cancelar</a></div>
   </form>
 </section>
 {% endblock %}

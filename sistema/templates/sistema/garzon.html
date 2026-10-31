@@ -4,36 +4,46 @@
 {% block clase %}toma{% endblock %}
 {% block contenido %}
 <div id="listos" class="listos" aria-live="polite" hidden></div>
+<header class="encabezado">
+  <h1>Nuevo pedido</h1>
+  <p class="guia">Sigue los 3 pasos y envía el pedido a cocina. El botón se activa cuando todo está completo.</p>
+</header>
 <div class="toma-grid">
   <section>
-    <h1>Nuevo pedido</h1>
-    <fieldset class="canales">
-      <legend>1. Canal de venta (obligatorio)</legend>
-      <label><input type="radio" name="canal" value="local"><span>Local</span></label>
-      <label><input type="radio" name="canal" value="retiro"><span>Retiro</span></label>
-      <label><input type="radio" name="canal" value="domicilio"><span>Domicilio</span></label>
-    </fieldset>
-    <div id="datos-canal" class="datos" hidden>
-      <div data-canal="local"><label>Número de mesa <input id="f-mesa" inputmode="numeric" maxlength="3"></label></div>
-      <div data-canal="retiro"><label>Nombre de quien retira <input id="f-retiro" maxlength="100"></label></div>
-      <div data-canal="domicilio" class="fila">
-        <label>Nombre <input id="f-dnombre" maxlength="100"></label>
-        <label>Teléfono <input id="f-dtel" inputmode="tel" maxlength="20"></label>
-        <label>Dirección <input id="f-ddir" maxlength="200"></label>
-        <label>Costo de envío <input id="f-denvio" inputmode="numeric" value="0"></label>
+    <div class="bloque">
+      <h2 class="paso"><span>1</span>¿Cómo se vende?</h2>
+      <fieldset class="canales">
+        <legend class="ayuda">Elige un canal (obligatorio)</legend>
+        <label><input type="radio" name="canal" value="local"><span>Local<small>Come en una mesa</small></span></label>
+        <label><input type="radio" name="canal" value="retiro"><span>Retiro<small>Pasa a buscarlo</small></span></label>
+        <label><input type="radio" name="canal" value="domicilio"><span>Domicilio<small>Se despacha</small></span></label>
+      </fieldset>
+      <div id="datos-canal" class="datos" hidden>
+        <h2 class="paso"><span>2</span>Datos del pedido</h2>
+        <div data-canal="local"><label>Número de mesa <input id="f-mesa" data-tipo="entero" inputmode="numeric" maxlength="3" placeholder="Ej: 4"></label></div>
+        <div data-canal="retiro"><label>Nombre de quien retira <input id="f-retiro" maxlength="100" placeholder="Ej: Ana"></label></div>
+        <div data-canal="domicilio" class="fila">
+          <label>Nombre del cliente <input id="f-dnombre" maxlength="100"></label>
+          <label>Teléfono <input id="f-dtel" data-tipo="telefono" inputmode="tel" maxlength="20" placeholder="+56 9 1234 5678"></label>
+          <label>Dirección <input id="f-ddir" maxlength="200"></label>
+          <label>Costo de envío <span class="moneda"><input id="f-denvio" data-tipo="entero" data-cero inputmode="numeric" maxlength="7" value="0"></span><span class="ayuda">Solo números, en pesos</span></label>
+        </div>
       </div>
     </div>
-    <h2>2. Productos</h2>
-    <div class="productos" id="productos"></div>
+    <div class="bloque">
+      <h2 class="paso"><span>3</span>Productos</h2>
+      <p class="ayuda">Toca un producto para agregarlo. Usa + y − en la comanda para cambiar la cantidad.</p>
+      <div class="productos" id="productos"></div>
+    </div>
   </section>
   <aside class="comanda panel" aria-label="Comanda">
     <h2>Comanda</h2>
     <ul id="lineas" class="lineas"><li class="suave">Aún no hay productos.</li></ul>
-    <label>Observaciones <input id="f-obs" maxlength="200" placeholder="Sin cebolla, etc."></label>
+    <label>Observaciones (opcional) <input id="f-obs" maxlength="200" placeholder="Ej: sin cebolla"></label>
     <p class="total">Total <strong id="total">$0</strong></p>
-    <p id="motivo" class="suave" role="status">Elige el canal y al menos un producto.</p>
+    <p id="motivo" class="ayuda" role="status">Elige el canal y al menos un producto.</p>
     <button id="enviar" class="btn primario grande" disabled>Enviar a cocina</button>
-    <p id="cronometro" class="suave"></p>
+    <p id="cronometro" class="ayuda"></p>
     <p id="error" class="aviso error" hidden></p>
   </aside>
 </div>

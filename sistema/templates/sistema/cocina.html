@@ -3,7 +3,10 @@
 {% block titulo %}Cocina · El Combo Completo{% endblock %}
 {% block clase %}cocina{% endblock %}
 {% block contenido %}
-<div class="cab"><h1>Comandas</h1><p id="estado-red" class="suave" role="status">Conectando…</p></div>
-<div id="tablero" class="tablero" aria-live="polite"><p class="suave">Sin comandas pendientes.</p></div>
+<header class="encabezado cab">
+  <div><h1>Comandas</h1><p class="guia">Aparecen en orden de llegada. Toca el botón de cada una para avanzarla: Preparar → Marcar lista.</p></div>
+  <p id="estado-red" class="ayuda" role="status">Conectando…</p>
+</header>
+<div id="tablero" class="tablero" aria-live="polite"><p class="vacio">Sin comandas pendientes.</p></div>
 {% endblock %}
 {% block js %}<script src="{% static 'sistema/cocina.js' %}"></script>{% endblock %}

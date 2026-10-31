@@ -188,3 +188,80 @@ class CrudRegistroReportesTests(Base):
         self.assertEqual(len(self.client.get(reverse("caja")).context["pendientes"]), 1)
         services.registrar_pago(p, "efectivo", p.total, self.cajero)
         self.assertEqual(len(self.client.get(reverse("caja")).context["pendientes"]), 0)
+
+
+class ValidacionNumericaTests(Base):
+    """Costos, montos y cantidades: solo números (ni letras, ni símbolos, ni NaN, ni notación científica)."""
+    MALOS = ["abc", "12abc", "$1000", "1.000", "1e3", "NaN", "Infinity", "-5", "1 000", "²", "1000000000"]
+
+    def test_costo_de_envio_rechaza_letras_y_simbolos(self):
+        for malo in self.MALOS:
+            with self.assertRaises(services.ErrorNegocio, msg=malo):
+                services.crear_pedido(self.garzon, "domicilio",
+                                      {"nombre": "L", "telefono": "1", "direccion": "D", "envio": malo},
+                                      [{"producto": self.prod.pk, "cantidad": 1}])
+        self.assertEqual(Pedido.objects.count(), 0)
+
+    def test_mesa_solo_digitos_normales(self):
+        for malo in ("abc", "²", "1a", "-1"):
+            with self.assertRaises(services.ErrorNegocio, msg=malo):
+                services.crear_pedido(self.garzon, "local", {"mesa": malo}, [{"producto": self.prod.pk, "cantidad": 1}])
+
+    def test_lectores_numericos(self):
+        self.assertEqual(services.leer_entero("4500"), 4500)
+        self.assertEqual(services.leer_decimal("2,5"), Decimal("2.5"))
+        self.assertEqual(services.leer_decimal("3.25"), Decimal("3.25"))
+        for malo in self.MALOS + [""]:
+            with self.assertRaises(services.ErrorNegocio, msg=malo):
+                services.leer_entero(malo)
+        for malo in ("abc", "1e3", "NaN", "-1", "1,234", "1,,2", ""):
+            with self.assertRaises(services.ErrorNegocio, msg=malo):
+                services.leer_decimal(malo)
+
+    def test_monto_de_pago_en_caja_rechaza_texto(self):
+        p = self.pedir(cant=2)
+        self.client.force_login(self.cajero)
+        for malo in ("12abc", "NaN", "$100", "1e2"):
+            r = self.client.post(reverse("caja"), {"accion": "pago", "pedido": p.pk, "metodo": "efectivo", "monto": malo}, follow=True)
+            self.assertContains(r, "solo números")
+        self.assertEqual(p.pagos.count(), 0)
+
+    def test_cierre_rechaza_montos_con_letras(self):
+        self.pedir()
+        with self.assertRaises(services.ErrorNegocio):
+            services.cerrar_caja(self.cajero, {"efectivo": "10x", "tarjeta": "0", "transferencia": "0"})
+
+    def test_inventario_rechaza_cantidades_invalidas(self):
+        self.client.force_login(self.admin)
+        for accion, extra in (("entrada", {"cantidad": "abc"}), ("ajuste", {"nuevo": "NaN", "motivo": "x"})):
+            r = self.client.post(reverse("inventario"), {"accion": accion, "insumo": self.pan.pk, **extra}, follow=True)
+            self.assertContains(r, "solo números")
+        self.pan.refresh_from_db()
+        self.assertEqual(self.pan.stock_actual, 10)
+
+    def test_precio_de_producto_rechaza_notacion_cientifica_y_texto(self):
+        self.client.force_login(self.admin)
+        for malo in ("1e3", "abc", "35.00", "$500", "1000000000"):
+            r = self.client.post(reverse("producto_crear"), {"nombre": f"P{malo}", "precio": malo, "activo": "on"})
+            self.assertEqual(r.status_code, 200, malo)          # vuelve al formulario con error
+            self.assertFalse(Producto.objects.filter(nombre=f"P{malo}").exists(), malo)
+
+    def test_insumo_acepta_coma_y_rechaza_texto(self):
+        self.client.force_login(self.admin)
+        r = self.client.post(reverse("insumo_crear"), {"nombre": "Sal", "unidad": "kg", "stock_actual": "2,5", "stock_minimo": "1"})
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(Insumo.objects.get(nombre="Sal").stock_actual, Decimal("2.5"))
+        for malo in ("1e3", "abc", "NaN"):
+            r = self.client.post(reverse("insumo_crear"), {"nombre": f"I{malo}", "unidad": "kg", "stock_actual": malo, "stock_minimo": "1"})
+            self.assertEqual(r.status_code, 200, malo)
+            self.assertFalse(Insumo.objects.filter(nombre=f"I{malo}").exists(), malo)
+
+    def test_pantallas_cargan_validacion_y_menu_activo(self):
+        self.client.force_login(self.admin)
+        g = self.client.get(reverse("garzon"))
+        self.assertContains(g, 'data-tipo="entero"')
+        self.assertContains(g, "validacion.js")
+        self.assertContains(self.client.get(reverse("caja")), 'data-tipo="entero"')
+        self.assertContains(self.client.get(reverse("inventario")), 'data-tipo="decimal"')
+        self.assertContains(self.client.get(reverse("producto_crear")), 'data-tipo="entero"')
+        self.assertContains(self.client.get(reverse("productos")), 'aria-current="page"')

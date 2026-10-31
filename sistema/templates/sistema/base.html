@@ -10,18 +10,18 @@
 {% if user.is_authenticated %}
 <header class="barra">
   <a class="marca" href="{% url 'inicio' %}">El Combo Completo</a>
-  <nav aria-label="Principal">
-    {% if user.rol == 'garzon' or user.rol == 'admin' %}<a href="{% url 'garzon' %}">Pedidos</a>{% endif %}
-    {% if user.rol == 'cocina' or user.rol == 'admin' %}<a href="{% url 'cocina' %}">Cocina</a>{% endif %}
-    {% if user.rol == 'cajero' or user.rol == 'admin' %}<a href="{% url 'caja' %}">Caja</a>{% endif %}
+  <nav aria-label="Principal">{% with n=request.resolver_match.url_name %}
+    {% if user.rol == 'garzon' or user.rol == 'admin' %}<a href="{% url 'garzon' %}" {% if n == 'garzon' %}class="activo" aria-current="page"{% endif %}>Pedidos</a>{% endif %}
+    {% if user.rol == 'cocina' or user.rol == 'admin' %}<a href="{% url 'cocina' %}" {% if n == 'cocina' %}class="activo" aria-current="page"{% endif %}>Cocina</a>{% endif %}
+    {% if user.rol == 'cajero' or user.rol == 'admin' %}<a href="{% url 'caja' %}" {% if n == 'caja' %}class="activo" aria-current="page"{% endif %}>Caja</a>{% endif %}
     {% if user.rol == 'admin' %}
-      <a href="{% url 'productos' %}">Productos</a>
-      <a href="{% url 'inventario' %}">Inventario</a>
-      <a href="{% url 'reportes' %}">Reportes</a>
-      <a href="{% url 'auditoria' %}">Auditoría</a>
+      <a href="{% url 'productos' %}" {% if n == 'productos' %}class="activo" aria-current="page"{% endif %}>Productos</a>
+      <a href="{% url 'inventario' %}" {% if n == 'inventario' %}class="activo" aria-current="page"{% endif %}>Inventario</a>
+      <a href="{% url 'reportes' %}" {% if n == 'reportes' %}class="activo" aria-current="page"{% endif %}>Reportes</a>
+      <a href="{% url 'auditoria' %}" {% if n == 'auditoria' %}class="activo" aria-current="page"{% endif %}>Auditoría</a>
       <a href="{% url 'admin:index' %}">Usuarios y roles</a>
     {% endif %}
-  </nav>
+  {% endwith %}</nav>
   <form method="post" action="{% url 'logout' %}" class="sesion">{% csrf_token %}
     <span>{{ user.get_full_name|default:user.username }} · {{ user.get_rol_display }}</span>
     <button class="btn chico">Salir</button>
@@ -32,6 +32,7 @@
 {% if messages %}<div class="avisos" role="status">{% for m in messages %}<p class="aviso {{ m.tags }}">{{ m }}</p>{% endfor %}</div>{% endif %}
 {% block contenido %}{% endblock %}
 </main>
+<script src="{% static 'sistema/validacion.js' %}"></script>
 {% block js %}{% endblock %}
 </body>
 </html>

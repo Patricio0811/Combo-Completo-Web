@@ -13,7 +13,7 @@
   const grilla = $("productos");
   productos.forEach((p) => {
     const b = document.createElement("button");
-    b.type = "button"; b.className = "producto";
+    b.type = "button"; b.className = "btn producto";
     const n = document.createElement("span"); n.textContent = p.nombre;
     const pr = document.createElement("small"); pr.textContent = clp(p.precio);
     b.append(n, pr);
@@ -43,7 +43,7 @@
     validar();
   }
   function btn(txt, aria, fn) {
-    const b = document.createElement("button"); b.type = "button"; b.className = "mini"; b.textContent = txt;
+    const b = document.createElement("button"); b.type = "button"; b.className = "btn mini"; b.textContent = txt;
     b.setAttribute("aria-label", aria); b.addEventListener("click", fn); return b;
   }
 
@@ -102,7 +102,7 @@
         const b = btn("Entregado", `Marcar entregado el pedido ${p.id}`, async () => {
           await fetch(`/api/pedidos/${p.id}/entregar/`, { method: "POST", headers: { "X-CSRFToken": csrf() } }); listos();
         });
-        b.className = "btn chico"; cont.append(s, b);
+        b.className = "btn chico claro"; cont.append(s, b);
       });
     } catch (_) { /* reintenta en el próximo ciclo */ }
   }

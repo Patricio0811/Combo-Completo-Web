@@ -2,7 +2,7 @@
 {% load sistema_extras %}
 {% block titulo %}Caja · El Combo Completo{% endblock %}
 {% block contenido %}
-<h1>Caja</h1>
+<header class="encabezado"><h1>Caja</h1><p class="guia">A la izquierda cobras cada pedido. A la derecha cierras la caja al terminar el turno, contando lo que hay en cada medio de pago.</p></header>
 <div class="dos">
 <section class="panel">
   <h2>Pedidos por cobrar</h2>
@@ -12,22 +12,22 @@
     <p>Saldo <strong>${{ p.saldo|clp }}</strong> de ${{ p.total|clp }}</p>
     <form method="post" class="en-linea">{% csrf_token %}<input type="hidden" name="accion" value="pago"><input type="hidden" name="pedido" value="{{ p.pk }}">
       <select name="metodo" aria-label="Método de pago">{% for v, n in metodos %}<option value="{{ v }}">{{ n }}</option>{% endfor %}</select>
-      <input name="monto" inputmode="numeric" value="{{ p.saldo|floatformat:'0' }}" size="8" aria-label="Monto">
+      <span class="moneda"><input name="monto" data-tipo="entero" inputmode="numeric" maxlength="9" value="{{ p.saldo|floatformat:'0' }}" size="8" aria-label="Monto a cobrar"></span>
       <button class="btn primario chico">Registrar pago</button></form>
     {% if user.rol == 'admin' %}
     <form method="post" class="en-linea">{% csrf_token %}<input type="hidden" name="accion" value="anular"><input type="hidden" name="pedido" value="{{ p.pk }}">
       <input name="motivo" placeholder="Motivo de anulación" aria-label="Motivo de anulación" required><button class="btn peligro chico">Anular pedido</button></form>
     {% endif %}
   </article>
-  {% empty %}<p class="suave">No hay pedidos con saldo pendiente.</p>{% endfor %}
+  {% empty %}<p class="vacio">No hay pedidos con saldo pendiente.</p>{% endfor %}
 </section>
 <section class="panel">
   <h2>Cierre de caja</h2>
-  <p class="suave">Cuenta lo que hay en cada medio de pago e ingrésalo. El sistema compara con lo registrado desde el último cierre.</p>
+  <p class="suave">Cuenta lo que hay en cada medio de pago e ingrésalo (solo números, en pesos). El sistema compara con lo registrado desde el último cierre.</p>
   <form method="post">{% csrf_token %}<input type="hidden" name="accion" value="cierre">
     <table><thead><tr><th>Medio</th><th class="num">Registrado</th><th class="num">Contado</th></tr></thead><tbody>
     {% for m, nombre, monto in esperado %}<tr><td>{{ nombre }}</td><td class="num">${{ monto|clp }}</td>
-      <td class="num"><input name="contado_{{ m }}" inputmode="numeric" size="9" value="0" aria-label="Contado en {{ nombre }}"></td></tr>{% endfor %}
+      <td class="num"><span class="moneda"><input name="contado_{{ m }}" data-tipo="entero" data-cero inputmode="numeric" maxlength="9" size="9" value="0" aria-label="Contado en {{ nombre }}"></span></td></tr>{% endfor %}
     </tbody><tfoot><tr><th>Total</th><th class="num">${{ total_esperado|clp }}</th><th></th></tr></tfoot></table>
     <button class="btn primario grande" onclick="return confirm('¿Cerrar la caja? Los pagos registrados quedarán incluidos en este cierre.')">Cerrar caja</button>
   </form>

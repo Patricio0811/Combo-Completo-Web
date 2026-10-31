@@ -1,7 +1,7 @@
 {% extends "sistema/base.html" %}
 {% block titulo %}Auditoría · El Combo Completo{% endblock %}
 {% block contenido %}
-<h1>Auditoría</h1>
+<header class="encabezado"><h1>Auditoría</h1><p class="guia">Historial de acciones críticas: anulaciones, ajustes de stock y cierres de caja con diferencia.</p></header>
 <form method="get" class="filtros panel">
   <label>Acción <select name="accion"><option value="">Todas</option>
     {% for a in acciones %}<option value="{{ a }}" {% if a == accion %}selected{% endif %}>{{ a }}</option>{% endfor %}</select></label>
@@ -11,6 +11,6 @@
   <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Detalle</th></tr></thead>
   <tbody>{% for r in registros %}<tr><td>{{ r.fecha_hora|date:"d/m/Y H:i" }}</td><td>{{ r.usuario.username|default:"—" }}</td><td>{{ r.accion }}</td>
     <td class="mono">{% for k, v in r.detalle.items %}{{ k }}: {{ v }}{% if not forloop.last %} · {% endif %}{% endfor %}</td></tr>
-  {% empty %}<tr><td colspan="4" class="suave">Aún no hay acciones críticas registradas.</td></tr>{% endfor %}</tbody>
+  {% empty %}<tr><td colspan="4" class="vacio">Aún no hay acciones críticas registradas.</td></tr>{% endfor %}</tbody>
 </table></div>
 {% endblock %}

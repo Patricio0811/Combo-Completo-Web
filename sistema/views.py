@@ -21,13 +21,6 @@ from .services import ErrorNegocio
 INICIO = {"garzon": "garzon", "cocina": "cocina", "cajero": "caja", "admin": "reportes"}
 
 
-def _decimal(valor, defecto=Decimal(0)):
-    try:
-        return Decimal(str(valor).strip() or defecto)
-    except InvalidOperation:
-        raise ErrorNegocio("Ingresa un número válido.")
-
-
 def inicio(request):
     if not request.user.is_authenticated:
         return redirect("login")
@@ -118,13 +111,13 @@ def inventario(request):
             else:
                 insumo = get_object_or_404(Insumo, pk=request.POST.get("insumo"))
                 if accion == "entrada":
-                    cant = _decimal(request.POST.get("cantidad"))
+                    cant = services.leer_decimal(request.POST.get("cantidad"), "Cantidad")
                     if cant <= 0:
                         raise ErrorNegocio("La cantidad debe ser mayor que cero.")
                     services.registrar_entrada(insumo, cant, request.user)
                     messages.success(request, f"Entrada registrada: {insumo.nombre}.")
                 elif accion == "ajuste":
-                    services.ajustar_stock(insumo, _decimal(request.POST.get("nuevo")),
+                    services.ajustar_stock(insumo, services.leer_decimal(request.POST.get("nuevo"), "Nuevo stock"),
                                            request.user, request.POST.get("motivo", ""))
                     messages.success(request, f"Stock de {insumo.nombre} ajustado y registrado en auditoría.")
         except ErrorNegocio as e:
@@ -145,7 +138,7 @@ def caja(request):
             if accion == "pago":
                 pedido = get_object_or_404(Pedido, pk=request.POST.get("pedido"))
                 services.registrar_pago(pedido, request.POST.get("metodo"),
-                                        _decimal(request.POST.get("monto")), request.user)
+                                        services.leer_entero(request.POST.get("monto"), "Monto"), request.user)
                 messages.success(request, f"Pago registrado en el pedido #{pedido.pk}.")
             elif accion == "cierre":
                 cierre = services.cerrar_caja(request.user, {m: request.POST.get(f"contado_{m}")
@@ -222,5 +215,3 @@ def auditoria(request):
         "acciones": RegistroAuditoria.objects.values_list("accion", flat=True).distinct(),
     })
 
-
-#COMENTARIO DE PRUEBA
