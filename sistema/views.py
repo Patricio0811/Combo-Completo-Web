@@ -221,3 +221,6 @@ def auditoria(request):
         "registros": qs[:200], "accion": accion,
         "acciones": RegistroAuditoria.objects.values_list("accion", flat=True).distinct(),
     })
+
+
+#COMENTARIO DE PRUEBA
