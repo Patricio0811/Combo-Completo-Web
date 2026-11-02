@@ -5,7 +5,7 @@ from django.core.management.base import BaseCommand
 
 from sistema.models import Insumo, Producto, Receta, Usuario
 
-USUARIOS = [("cocina, Cocina"),("admin, admin")]
+USUARIOS = [("cocina, cocina"),("admin, admin")]
 INSUMOS = {"Pan de completo": ("un", 100, 20), "Vienesa": ("un", 100, 20), "Palta": ("kg", 8, 2),
            "Tomate": ("kg", 8, 2), "Mayonesa": ("kg", 5, 1), "Pan de hamburguesa": ("un", 60, 15),
            "Carne de hamburguesa": ("un", 60, 15), "Papas": ("kg", 25, 5), "Bebida 350 cc": ("un", 80, 20)}
