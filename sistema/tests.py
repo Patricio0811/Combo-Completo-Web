@@ -82,9 +82,9 @@ class PermisosYApiTests(Base):
     def test_api_pedido_y_cocina_ordenada_por_llegada(self):
         self.client.force_login(self.garzon)
         ids = []
-        for mesa in ("1", "2", "3"):
+        for nombre in ("Ana", "Beto", "Carla"):
             r = self.client.post(reverse("api_pedido_crear"), json.dumps(
-                {"canal": "local", "datos": {"mesa": mesa}, "observaciones": "<script>alert(1)</script>",
+                {"canal": "retiro", "datos": {"nombre": nombre}, "observaciones": "<script>alert(1)</script>",
                  "items": [{"producto": self.prod.pk, "cantidad": 1}]}), content_type="application/json")
             self.assertEqual(r.status_code, 200)
             ids.append(r.json()["id"])
@@ -135,26 +135,25 @@ class CajaYReportesTests(Base):
             services.ajustar_stock(self.pan, Decimal(5), self.admin, " ")
 
 
-class CrudRegistroReportesTests(Base):
-    def test_registro_crea_garzon_y_entra(self):
-        r = self.client.post(reverse("registro"), {"username": "nuevo", "password1": "Clave-segura-9", "password2": "Clave-segura-9"})
-        self.assertEqual(r.status_code, 302)
-        u = Usuario.objects.get(username="nuevo")
-        self.assertEqual(u.rol, "garzon")
-        self.assertEqual(int(self.client.session["_auth_user_id"]), u.pk)
+RECETAS_VACIAS = {"recetas-TOTAL_FORMS": "0", "recetas-INITIAL_FORMS": "0",
+                  "recetas-MIN_NUM_FORMS": "0", "recetas-MAX_NUM_FORMS": "1000"}
 
-    def test_registro_no_permite_elegir_rol(self):
-        self.client.post(reverse("registro"), {"username": "x", "password1": "Clave-segura-9", "password2": "Clave-segura-9", "rol": "admin"})
-        self.assertEqual(Usuario.objects.get(username="x").rol, "garzon")
+
+class CrudRegistroReportesTests(Base):
+    def test_ya_no_existe_la_creacion_de_cuentas(self):
+        self.assertEqual(self.client.get("/registro/").status_code, 404)
+        self.assertNotContains(self.client.get(reverse("login")), "Crear cuenta")
+        self.client.post("/registro/", {"username": "x", "password1": "Clave-segura-9", "password2": "Clave-segura-9"})
+        self.assertFalse(Usuario.objects.filter(username="x").exists())
 
     def test_crud_producto_solo_admin(self):
         self.client.force_login(self.garzon)
         self.assertEqual(self.client.get(reverse("productos")).status_code, 403)
         self.client.force_login(self.admin)
-        r = self.client.post(reverse("producto_crear"), {"nombre": "Churrasco", "precio": "5000", "activo": "on"})
+        r = self.client.post(reverse("producto_crear"), {"nombre": "Churrasco", "precio": "5000", "activo": "on", **RECETAS_VACIAS})
         self.assertEqual(r.status_code, 302)
         p = Producto.objects.get(nombre="Churrasco")
-        self.client.post(reverse("producto_editar", args=[p.pk]), {"nombre": "Churrasco", "precio": "5500", "activo": "on"})
+        self.client.post(reverse("producto_editar", args=[p.pk]), {"nombre": "Churrasco", "precio": "5500", "activo": "on", **RECETAS_VACIAS})
         p.refresh_from_db()
         self.assertEqual(p.precio, 5500)
         self.client.post(reverse("producto_eliminar", args=[p.pk]))
@@ -162,7 +161,7 @@ class CrudRegistroReportesTests(Base):
 
     def test_validaciones_producto_e_insumo(self):
         self.client.force_login(self.admin)
-        r = self.client.post(reverse("producto_crear"), {"nombre": "Completo", "precio": "0"})
+        r = self.client.post(reverse("producto_crear"), {"nombre": "Completo", "precio": "0", **RECETAS_VACIAS})
         self.assertContains(r, "Ya existe un producto")
         self.assertContains(r, "mayor que cero")
         r = self.client.post(reverse("insumo_crear"), {"nombre": "Sal", "unidad": "kg", "stock_actual": "-1", "stock_minimo": "0"})
@@ -242,7 +241,7 @@ class ValidacionNumericaTests(Base):
     def test_precio_de_producto_rechaza_notacion_cientifica_y_texto(self):
         self.client.force_login(self.admin)
         for malo in ("1e3", "abc", "35.00", "$500", "1000000000"):
-            r = self.client.post(reverse("producto_crear"), {"nombre": f"P{malo}", "precio": malo, "activo": "on"})
+            r = self.client.post(reverse("producto_crear"), {"nombre": f"P{malo}", "precio": malo, "activo": "on", **RECETAS_VACIAS})
             self.assertEqual(r.status_code, 200, malo)          # vuelve al formulario con error
             self.assertFalse(Producto.objects.filter(nombre=f"P{malo}").exists(), malo)
 
@@ -258,10 +257,123 @@ class ValidacionNumericaTests(Base):
 
     def test_pantallas_cargan_validacion_y_menu_activo(self):
         self.client.force_login(self.admin)
-        g = self.client.get(reverse("garzon"))
-        self.assertContains(g, 'data-tipo="entero"')
-        self.assertContains(g, "validacion.js")
+        self.assertContains(self.client.get(reverse("garzon")), "validacion.js")
         self.assertContains(self.client.get(reverse("caja")), 'data-tipo="entero"')
         self.assertContains(self.client.get(reverse("inventario")), 'data-tipo="decimal"')
         self.assertContains(self.client.get(reverse("producto_crear")), 'data-tipo="entero"')
         self.assertContains(self.client.get(reverse("productos")), 'aria-current="page"')
+
+
+class SoloRetiroYCocinaTests(Base):
+    def _crear_por_api(self, **extra):
+        self.client.force_login(self.garzon)
+        cuerpo = {"datos": {"nombre": "Ana"}, "items": [{"producto": self.prod.pk, "cantidad": 2}], **extra}
+        return self.client.post(reverse("api_pedido_crear"), json.dumps(cuerpo), content_type="application/json")
+
+    def test_pantalla_del_garzon_solo_pide_nombre_de_quien_retira(self):
+        self.client.force_login(self.garzon)
+        html = self.client.get(reverse("garzon")).content.decode()
+        self.assertIn("Nombre de quien retira", html)
+        for ausente in ("Número de mesa", "Costo de envío", "Dirección", "Teléfono", "Nombre del cliente", ">Local<", ">Domicilio<"):
+            self.assertNotIn(ausente, html, ausente)
+
+    def test_api_siempre_crea_pedidos_de_retiro(self):
+        for canal in ("local", "domicilio", None):
+            r = self._crear_por_api(canal=canal)
+            self.assertEqual(r.status_code, 200)
+            self.assertEqual(r.json()["canal"], "Retiro")
+        self.assertEqual(Pedido.objects.filter(pedidoretiro__isnull=False).count(), 3)
+
+    def test_api_exige_nombre_de_quien_retira(self):
+        self.client.force_login(self.garzon)
+        r = self.client.post(reverse("api_pedido_crear"), json.dumps(
+            {"datos": {"nombre": "  "}, "items": [{"producto": self.prod.pk, "cantidad": 1}]}), content_type="application/json")
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(Pedido.objects.count(), 0)
+
+    def test_cocina_recibe_detalle_e_insumos_de_cada_producto(self):
+        self.prod.detalle = "Pan, vienesa y palta."
+        self.prod.save()
+        self._crear_por_api()
+        self.client.force_login(self.cocina)
+        item = self.client.get(reverse("api_comandas")).json()["comandas"][0]["items"][0]
+        self.assertEqual((item["n"], item["c"], item["d"]), ("Completo", 2, "Pan, vienesa y palta."))
+        self.assertEqual(item["ins"], [{"n": "Pan", "c": "2", "u": "un"}])
+
+    def test_pantalla_de_cocina_permite_ampliar_la_comanda(self):
+        self.client.force_login(self.cocina)
+        self.assertContains(self.client.get(reverse("cocina")), "cocina.js")
+        js = (__import__("pathlib").Path(__file__).parent / "static/sistema/cocina.js").read_text()
+        self.assertIn("Ver detalle", js)
+        self.assertIn("abiertas", js)     # recuerda qué comandas están ampliadas entre actualizaciones
+
+
+class ProductoConRecetaTests(Base):
+    def _form(self, filas, **extra):
+        datos = {"nombre": "Italiano XL", "precio": "4500", "detalle": "Doble vienesa con palta", "activo": "on",
+                 "recetas-TOTAL_FORMS": str(len(filas)), "recetas-INITIAL_FORMS": "0",
+                 "recetas-MIN_NUM_FORMS": "0", "recetas-MAX_NUM_FORMS": "1000", **extra}
+        for i, (insumo, cant) in enumerate(filas):
+            datos[f"recetas-{i}-insumo"] = insumo
+            datos[f"recetas-{i}-cantidad_por_unidad"] = cant
+        return datos
+
+    def setUp(self):
+        super().setUp()
+        self.sal = Insumo.objects.create(nombre="Sal", unidad="kg", stock_actual=5, stock_minimo=1)
+        self.client.force_login(self.admin)
+
+    def test_crear_producto_con_detalle_y_recetas(self):
+        r = self.client.post(reverse("producto_crear"), self._form([(self.pan.pk, "2"), (self.sal.pk, "0,05")]))
+        self.assertEqual(r.status_code, 302)
+        p = Producto.objects.get(nombre="Italiano XL")
+        self.assertEqual(p.detalle, "Doble vienesa con palta")
+        self.assertEqual({r_.insumo_id: r_.cantidad_por_unidad for r_ in p.recetas.all()},
+                         {self.pan.pk: Decimal("2"), self.sal.pk: Decimal("0.05")})
+
+    def test_el_producto_nuevo_descuenta_stock_segun_su_receta(self):
+        self.client.post(reverse("producto_crear"), self._form([(self.pan.pk, "2")]))
+        p = Producto.objects.get(nombre="Italiano XL")
+        with self.captureOnCommitCallbacks(execute=True):
+            services.crear_pedido(self.garzon, "retiro", {"nombre": "Ana"}, [{"producto": p.pk, "cantidad": 3}])
+        self.pan.refresh_from_db()
+        self.assertEqual(self.pan.stock_actual, 4)   # 10 - (2 x 3)
+
+    def test_filas_vacias_se_ignoran(self):
+        r = self.client.post(reverse("producto_crear"), self._form([("", ""), (self.pan.pk, "1"), ("", "")]))
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(Producto.objects.get(nombre="Italiano XL").recetas.count(), 1)
+
+    def test_rechaza_insumo_repetido_y_cantidades_invalidas(self):
+        r = self.client.post(reverse("producto_crear"), self._form([(self.pan.pk, "1"), (self.pan.pk, "2")]))
+        self.assertContains(r, "está repetido")
+        for malo in ("abc", "1e3", "NaN", "0", "-1", "1,2345"):
+            r = self.client.post(reverse("producto_crear"), self._form([(self.pan.pk, malo)]))
+            self.assertEqual(r.status_code, 200, malo)
+        self.assertFalse(Producto.objects.filter(nombre="Italiano XL").exists())   # nada se guarda a medias
+
+    def test_editar_cambia_y_quita_insumos(self):
+        self.client.post(reverse("producto_crear"), self._form([(self.pan.pk, "1"), (self.sal.pk, "1")]))
+        p = Producto.objects.get(nombre="Italiano XL")
+        r1, r2 = list(p.recetas.order_by("pk"))
+        datos = self._form([(self.pan.pk, "3"), (self.sal.pk, "1")], detalle="Nuevo detalle")
+        datos.update({"recetas-INITIAL_FORMS": "2", "recetas-0-id": r1.pk, "recetas-1-id": r2.pk,
+                      "recetas-1-DELETE": "on", "recetas-0-producto": p.pk, "recetas-1-producto": p.pk})
+        self.assertEqual(self.client.post(reverse("producto_editar", args=[p.pk]), datos).status_code, 302)
+        p.refresh_from_db()
+        self.assertEqual(p.detalle, "Nuevo detalle")
+        self.assertEqual([(x.insumo_id, x.cantidad_por_unidad) for x in p.recetas.all()], [(self.pan.pk, Decimal("3"))])
+
+    def test_formulario_muestra_caja_de_detalle_y_tabla_de_insumos(self):
+        html = self.client.get(reverse("producto_crear")).content.decode()
+        self.assertIn("<textarea", html)
+        self.assertIn("Insumos que usa", html)
+        self.assertIn("recetas-TOTAL_FORMS", html)
+        self.assertIn("receta.js", html)
+
+    def test_lista_de_productos_muestra_detalle_e_insumos(self):
+        self.prod.detalle = "Pan con vienesa"
+        self.prod.save()
+        html = self.client.get(reverse("productos")).content.decode()
+        self.assertIn("Pan con vienesa", html)
+        self.assertIn("Pan (1", html)

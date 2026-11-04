@@ -1,25 +1,14 @@
-"""CRUD de Productos e Insumos con vistas basadas en clases (solo administrador)."""
+"""CRUD de Productos (con su receta de insumos) e Insumos, con vistas basadas en clases (solo administrador)."""
 from django.contrib import messages
-from django.contrib.auth import login
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.db import transaction
 from django.db.models import Count, ProtectedError
 from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 
-from .forms import InsumoForm, ProductoForm, RegistroForm
+from .forms import InsumoForm, ProductoForm, RecetaFormSet
 from .models import Insumo, Producto
-
-
-def registro(request):
-    if request.user.is_authenticated:
-        return redirect("inicio")
-    form = RegistroForm(request.POST or None)
-    if request.method == "POST" and form.is_valid():
-        login(request, form.save())
-        messages.success(request, "Cuenta creada. Un administrador puede cambiar tu rol.")
-        return redirect("inicio")
-    return render(request, "sistema/registro.html", {"form": form})
 
 
 class SoloAdminMixin(LoginRequiredMixin, UserPassesTestMixin):
@@ -73,17 +62,44 @@ class ProductoLista(SoloAdminMixin, ListView):
     context_object_name = "productos"
 
     def get_queryset(self):
-        return Producto.objects.annotate(n_insumos=Count("recetas")).order_by("-activo", "nombre")
+        return (Producto.objects.annotate(n_insumos=Count("recetas"))
+                .prefetch_related("recetas__insumo").order_by("-activo", "nombre"))
 
 
-class ProductoCrear(_Crud, CreateView):
+class _ProductoGuardar(_Crud):
+    """Guarda el producto y su receta (insumos del inventario que consume) en una sola transacción."""
+    template_name = "sistema/producto_form.html"
     model, form_class, etiqueta = Producto, ProductoForm, "Producto"
     success_url = reverse_lazy("productos")
 
+    def _recetas(self, data=None, instance=None):
+        return RecetaFormSet(data, instance=instance if instance is not None else getattr(self, "object", None),
+                             prefix="recetas")
 
-class ProductoEditar(_Crud, UpdateView):
-    model, form_class, etiqueta = Producto, ProductoForm, "Producto"
-    success_url = reverse_lazy("productos")
+    def get_context_data(self, **kw):
+        ctx = super().get_context_data(**kw)
+        if "recetas" not in kw:
+            ctx["recetas"] = self._recetas(self.request.POST if self.request.method == "POST" else None)
+        return ctx
+
+    def form_valid(self, form):
+        recetas = self._recetas(self.request.POST, instance=form.instance)
+        if not recetas.is_valid():
+            return self.render_to_response(self.get_context_data(form=form, recetas=recetas))
+        with transaction.atomic():
+            self.object = form.save()
+            recetas.instance = self.object
+            recetas.save()
+        messages.success(self.request, f"Producto guardado: {self.object}.")
+        return redirect(self.success_url)
+
+
+class ProductoCrear(_ProductoGuardar, CreateView):
+    pass
+
+
+class ProductoEditar(_ProductoGuardar, UpdateView):
+    pass
 
 
 class ProductoEliminar(_Borrar):

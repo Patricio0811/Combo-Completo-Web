@@ -1,0 +1,49 @@
+{% extends "sistema/base.html" %}
+{% load static %}
+{% block titulo %}{{ etiqueta }} · El Combo Completo{% endblock %}
+{% block contenido %}
+<header class="encabezado">
+  <h1>{% if object %}Editar{% else %}Nuevo{% endif %} producto</h1>
+  <p class="guia">Escribe qué contiene el pedido y elige los insumos del inventario que se gastan cada vez que se vende. Con eso el stock se descuenta solo.</p>
+</header>
+<form method="post" novalidate>{% csrf_token %}
+<section class="panel formulario">
+  <h2>1. Datos del producto</h2>
+  {% if form.non_field_errors %}<p class="aviso error">{{ form.non_field_errors|join:" " }}</p>{% endif %}
+  {% for campo in form %}
+  <div class="campo{% if campo.errors %} con-error{% endif %}">
+    <label for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+    {{ campo }}
+    {% if campo.help_text %}<span class="ayuda">{{ campo.help_text }}</span>{% endif %}
+    {% for e in campo.errors %}<span class="aviso-campo">{{ e }}</span>{% endfor %}
+  </div>
+  {% endfor %}
+</section>
+
+<section class="panel formulario receta">
+  <h2>2. Insumos que usa (receta)</h2>
+  <p class="ayuda">Por cada unidad vendida. Ejemplos: pan de completo 1 · palta 0,05 (kg). Si no agregas ninguno, este producto no descontará stock.</p>
+  {{ recetas.management_form }}
+  {% if recetas.non_form_errors %}<p class="aviso error">{{ recetas.non_form_errors|join:" " }}</p>{% endif %}
+  <div class="tabla-w"><table>
+    <thead><tr><th>Insumo del inventario</th><th>Cantidad por unidad vendida</th>{% if recetas.can_delete %}<th>Quitar</th>{% endif %}</tr></thead>
+    <tbody id="filas-receta">
+    {% for f in recetas %}
+      <tr class="fila-receta">
+        <td>{{ f.id }}{{ f.insumo }}{% for e in f.insumo.errors %}<span class="aviso-campo">{{ e }}</span>{% endfor %}</td>
+        <td>{{ f.cantidad_por_unidad }}{% for e in f.cantidad_por_unidad.errors %}<span class="aviso-campo">{{ e }}</span>{% endfor %}</td>
+        {% if recetas.can_delete %}<td>{% if f.instance.pk %}<label class="quitar">{{ f.DELETE }} Quitar</label>{% endif %}</td>{% endif %}
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <p><button type="button" id="mas-insumos" class="btn chico">+ Agregar otro insumo</button></p>
+  <template id="fila-vacia">
+    <tr class="fila-receta"><td>{{ recetas.empty_form.id }}{{ recetas.empty_form.insumo }}</td><td>{{ recetas.empty_form.cantidad_por_unidad }}</td>{% if recetas.can_delete %}<td></td>{% endif %}</tr>
+  </template>
+</section>
+
+<div class="en-linea"><button class="btn primario">Guardar producto</button> <a class="btn" href="{{ volver }}">Cancelar</a></div>
+</form>
+{% endblock %}
+{% block js %}<script src="{% static 'sistema/receta.js' %}"></script>{% endblock %}

@@ -18,7 +18,6 @@ urlpatterns = [
     path("caja/", views.caja, name="caja"),
     path("reportes/", views.reportes, name="reportes"),
     path("auditoria/", views.auditoria, name="auditoria"),
-    path("registro/", crud.registro, name="registro"),
     path("productos/", crud.ProductoLista.as_view(), name="productos"),
     path("productos/nuevo/", crud.ProductoCrear.as_view(), name="producto_crear"),
     path("productos/<int:pk>/editar/", crud.ProductoEditar.as_view(), name="producto_editar"),

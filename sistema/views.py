@@ -38,10 +38,11 @@ def garzon(request):
 @rol_requerido("garzon", api=True)
 @require_POST
 def api_pedido_crear(request):
+    """El local solo vende por Retiro: el canal se fija aquí y no depende de lo que envíe el navegador."""
     try:
         d = json.loads(request.body)
         pedido = services.crear_pedido(
-            request.user, d.get("canal"), d.get("datos", {}), d.get("items", []), d.get("observaciones", ""))
+            request.user, "retiro", d.get("datos", {}), d.get("items", []), d.get("observaciones", ""))
     except ErrorNegocio as e:
         return JsonResponse({"error": str(e)}, status=400)
     except (ValueError, KeyError, TypeError, InvalidOperation):
@@ -68,13 +69,27 @@ def cocina(request):
     return render(request, "sistema/cocina.html")
 
 
+def _cantidad(x):
+    """Decimal sin ceros sobrantes: 0.050 -> '0.05', 2.000 -> '2'."""
+    return format(x.normalize(), "f")
+
+
+def _item_comanda(d):
+    """Producto de la comanda con su detalle y los insumos que consume (para la vista ampliada de cocina)."""
+    return {
+        "n": d.producto.nombre, "c": d.cantidad, "d": d.producto.detalle,
+        "ins": [{"n": r.insumo.nombre, "c": _cantidad(r.cantidad_por_unidad * d.cantidad), "u": r.insumo.unidad}
+                for r in d.producto.recetas.all()],
+    }
+
+
 @rol_requerido("cocina", api=True)
 def api_comandas(request):
     """Ordenadas por hora de llegada. La pantalla consulta cada 2 s (RNF03: menos de 4 s)."""
     comandas = (Comanda.objects.exclude(estado="lista").exclude(pedido__estado="anulado")
                 .select_related("pedido", "pedido__pedidolocal", "pedido__pedidoretiro",
                                 "pedido__pedidodomicilio__cliente")
-                .prefetch_related("pedido__detalles__producto").order_by("hora_llegada"))
+                .prefetch_related("pedido__detalles__producto__recetas__insumo").order_by("hora_llegada"))
     ahora = timezone.now()
     data = []
     for c in comandas:
@@ -84,7 +99,7 @@ def api_comandas(request):
             "estado": c.estado, "obs": p.observaciones,
             "segundos": int((ahora - c.hora_llegada).total_seconds()),
             "hora": timezone.localtime(c.hora_llegada).strftime("%H:%M"),
-            "items": [{"n": d.producto.nombre, "c": d.cantidad} for d in p.detalles.all()],
+            "items": [_item_comanda(d) for d in p.detalles.all()],
         })
     return JsonResponse({"comandas": data})
 

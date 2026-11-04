@@ -34,6 +34,7 @@ class Cliente(models.Model):
 class Producto(models.Model):
     nombre = models.CharField(max_length=100)
     precio = models.DecimalField(max_digits=10, decimal_places=0)
+    detalle = models.CharField("Detalle (qué contiene)", max_length=500, blank=True)
     activo = models.BooleanField(default=True)
 
     class Meta:

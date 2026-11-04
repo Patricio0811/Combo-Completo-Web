@@ -5,7 +5,6 @@
   const carrito = new Map(); // id -> cantidad
   let inicio = null;         // para medir el objetivo de RNF01 (menos de 30 s)
 
-  const canalActual = () => (document.querySelector('input[name="canal"]:checked') || {}).value || null;
   const csrf = () => (document.cookie.match(/csrftoken=([^;]+)/) || [])[1];
   const tocar = () => { if (!inicio) inicio = Date.now(); };
 
@@ -38,7 +37,6 @@
       const sub = document.createElement("span"); sub.className = "num"; sub.textContent = clp(p.precio * cant);
       li.append(nom, ctl, sub); ul.append(li);
     });
-    if (canalActual() === "domicilio") total += Number($("f-denvio").value) || 0;
     $("total").textContent = clp(total);
     validar();
   }
@@ -47,23 +45,13 @@
     b.setAttribute("aria-label", aria); b.addEventListener("click", fn); return b;
   }
 
-  // ---- canal y datos ----
-  document.querySelectorAll('input[name="canal"]').forEach((r) => r.addEventListener("change", () => {
-    tocar();
-    $("datos-canal").hidden = false;
-    document.querySelectorAll("[data-canal]").forEach((d) => (d.hidden = d.dataset.canal !== canalActual()));
-    pintar();
-  }));
-  document.querySelectorAll(".datos input, #f-obs").forEach((i) => i.addEventListener("input", pintar));
+  // ---- nombre de quien retira ----
+  $("f-retiro").addEventListener("input", () => { tocar(); validar(); });
+  $("f-obs").addEventListener("input", validar);
 
   function faltante() {
-    const c = canalActual();
-    if (!c) return "Elige el canal de venta.";
+    if (!$("f-retiro").value.trim()) return "Escribe el nombre de quien retira.";
     if (!carrito.size) return "Agrega al menos un producto.";
-    if (c === "local" && !/^\d+$/.test($("f-mesa").value.trim())) return "Indica el número de mesa.";
-    if (c === "retiro" && !$("f-retiro").value.trim()) return "Indica el nombre de quien retira.";
-    if (c === "domicilio" && !($("f-dnombre").value.trim() && $("f-dtel").value.trim() && $("f-ddir").value.trim()))
-      return "Completa nombre, teléfono y dirección.";
     return "";
   }
   function validar() {
@@ -74,21 +62,17 @@
 
   // ---- enviar ----
   $("enviar").addEventListener("click", async () => {
-    const c = canalActual(); const err = $("error"); err.hidden = true;
-    const datos = c === "local" ? { mesa: $("f-mesa").value } : c === "retiro" ? { nombre: $("f-retiro").value }
-      : { nombre: $("f-dnombre").value, telefono: $("f-dtel").value, direccion: $("f-ddir").value, envio: $("f-denvio").value };
+    const err = $("error"); err.hidden = true;
     $("enviar").disabled = true;
     try {
       const r = await fetch("/api/pedidos/", { method: "POST", headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
-        body: JSON.stringify({ canal: c, datos, observaciones: $("f-obs").value, items: [...carrito].map(([producto, cantidad]) => ({ producto, cantidad })) }) });
+        body: JSON.stringify({ canal: "retiro", datos: { nombre: $("f-retiro").value }, observaciones: $("f-obs").value, items: [...carrito].map(([producto, cantidad]) => ({ producto, cantidad })) }) });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "No se pudo enviar el pedido.");
       const seg = Math.round((Date.now() - inicio) / 1000);
       $("cronometro").textContent = `Pedido #${d.id} enviado a cocina en ${seg} s` + (seg <= 30 ? "." : " (la meta es 30 s).");
       carrito.clear(); inicio = null;
-      document.querySelectorAll('input[name="canal"]').forEach((x) => (x.checked = false));
-      document.querySelectorAll(".datos input, #f-obs").forEach((i) => (i.value = i.id === "f-denvio" ? "0" : ""));
-      $("datos-canal").hidden = true; pintar();
+      $("f-retiro").value = ""; $("f-obs").value = ""; pintar();
     } catch (e) { err.textContent = e.message; err.hidden = false; validar(); }
   });
 
