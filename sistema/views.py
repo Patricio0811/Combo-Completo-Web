@@ -5,7 +5,7 @@ from decimal import Decimal, InvalidOperation
 from django.contrib import messages
 from django.db.models import Avg, Count, DecimalField, F, Q, Sum, Value
 from django.db.models.functions import Coalesce
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.dateparse import parse_date
@@ -19,6 +19,17 @@ from .permisos import rol_requerido
 from .services import ErrorNegocio
 
 INICIO = {"garzon": "garzon", "cocina": "cocina", "cajero": "caja", "admin": "reportes"}
+
+
+def _pk(valor):
+    """Id recibido desde un formulario: si no es un entero válido responde 404 (y no un error 500)."""
+    try:
+        n = int(str(valor).strip())
+    except (TypeError, ValueError):
+        raise Http404("Identificador no válido")
+    if not 1 <= n <= 2_147_483_647:
+        raise Http404("Identificador no válido")
+    return n
 
 
 def inicio(request):
@@ -38,14 +49,17 @@ def garzon(request):
 @rol_requerido("garzon", api=True)
 @require_POST
 def api_pedido_crear(request):
-    """El local solo vende por Retiro: el canal se fija aquí y no depende de lo que envíe el navegador."""
+    """El local vende por Retiro o Domicilio. El canal debe elegirse de forma explícita; 'local' ya no se acepta."""
     try:
         d = json.loads(request.body)
+        canal = d.get("canal")
+        if canal not in ("retiro", "domicilio"):
+            raise ErrorNegocio("Elige el canal de venta: Retiro o Domicilio.")
         pedido = services.crear_pedido(
-            request.user, "retiro", d.get("datos", {}), d.get("items", []), d.get("observaciones", ""))
+            request.user, canal, d.get("datos", {}), d.get("items", []), d.get("observaciones", ""))
     except ErrorNegocio as e:
         return JsonResponse({"error": str(e)}, status=400)
-    except (ValueError, KeyError, TypeError, InvalidOperation):
+    except (ValueError, KeyError, TypeError, InvalidOperation, AttributeError):
         return JsonResponse({"error": "Datos del pedido no válidos."}, status=400)
     return JsonResponse({"id": pedido.pk, "total": int(pedido.total), "canal": pedido.canal})
 
@@ -122,9 +136,9 @@ def inventario(request):
         accion = request.POST.get("accion")
         try:
             if accion == "atender":
-                AlertaStock.objects.filter(pk=request.POST.get("alerta")).update(atendida=True)
+                AlertaStock.objects.filter(pk=_pk(request.POST.get("alerta"))).update(atendida=True)
             else:
-                insumo = get_object_or_404(Insumo, pk=request.POST.get("insumo"))
+                insumo = get_object_or_404(Insumo, pk=_pk(request.POST.get("insumo")))
                 if accion == "entrada":
                     cant = services.leer_decimal(request.POST.get("cantidad"), "Cantidad")
                     if cant <= 0:
@@ -151,7 +165,7 @@ def caja(request):
         accion = request.POST.get("accion")
         try:
             if accion == "pago":
-                pedido = get_object_or_404(Pedido, pk=request.POST.get("pedido"))
+                pedido = get_object_or_404(Pedido, pk=_pk(request.POST.get("pedido")))
                 services.registrar_pago(pedido, request.POST.get("metodo"),
                                         services.leer_entero(request.POST.get("monto"), "Monto"), request.user)
                 messages.success(request, f"Pago registrado en el pedido #{pedido.pk}.")
@@ -160,7 +174,7 @@ def caja(request):
                                                               for m, _ in Pago.Metodo.choices})
                 messages.success(request, f"Caja cerrada. Diferencia: ${cierre.diferencia:,.0f}".replace(",", "."))
             elif accion == "anular" and request.user.tiene_rol("admin"):
-                services.anular_pedido(get_object_or_404(Pedido, pk=request.POST.get("pedido")),
+                services.anular_pedido(get_object_or_404(Pedido, pk=_pk(request.POST.get("pedido"))),
                                        request.user, request.POST.get("motivo", ""))
                 messages.success(request, "Pedido anulado y registrado en auditoría.")
         except ErrorNegocio as e:

@@ -93,7 +93,7 @@ ul.plano{list-style:none;padding:0;margin:0} ul.plano li{padding:8px 0;border-bo
 @media (max-width:860px){.toma-grid{grid-template-columns:1fr}}
 .paso{margin:0 0 6px;font:700 1.1rem var(--ticket)} .paso span{display:inline-grid;place-items:center;width:28px;height:28px;margin-right:8px;border-radius:50%;background:var(--tinta);color:var(--papel);font-size:.95rem}
 .bloque{margin-bottom:20px}
-.canales{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;border:0;padding:0;margin:8px 0 0}
+.canales{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;border:0;padding:0;margin:8px 0 0}
 .canales label{display:block;font-weight:400}
 .canales input{position:absolute;opacity:0;width:1px;height:1px}
 .canales span{display:grid;place-items:center;gap:2px;min-height:72px;padding:8px;border:2px solid var(--tinta);border-radius:var(--radio);background:var(--papel);font:700 1.2rem var(--ticket);cursor:pointer;text-align:center}

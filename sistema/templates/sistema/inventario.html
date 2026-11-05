@@ -3,7 +3,6 @@
 {% block contenido %}
 <header class="encabezado"><h1>Inventario</h1><p class="guia">Revisa el stock de cada insumo. Registra las compras en «Ingresar» y corrige diferencias en «Ajuste manual» (queda en auditoría). Para crear, editar o eliminar un insumo usa los botones de la fila.</p></header>
 <p><a class="btn primario" href="{% url 'insumo_crear' %}">Nuevo insumo</a></p>
-<p><a class="btn primario" href="{% url 'insumo_crear' %}">Nuevo insumo</a></p>
 {% if alertas %}
 <section class="panel alerta">
   <h2>Insumos bajo el mínimo</h2>

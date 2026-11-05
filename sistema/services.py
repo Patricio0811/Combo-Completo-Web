@@ -147,6 +147,8 @@ def ajustar_stock(insumo, nuevo, usuario, motivo):
 
 @transaction.atomic
 def registrar_pago(pedido, metodo, monto, usuario):
+    if metodo not in Pago.Metodo.values:
+        raise ErrorNegocio("Elige un medio de pago válido: efectivo, tarjeta o transferencia.")
     if pedido.estado == "anulado":
         raise ErrorNegocio("No se puede cobrar un pedido anulado.")
     if monto <= 0:
