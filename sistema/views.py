@@ -4,7 +4,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.db.models import Avg, Count, DecimalField, F, Q, Sum, Value
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, TruncDay, TruncMonth, TruncWeek, TruncYear
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -194,11 +194,55 @@ def caja(request):
 
 
 # ---------- Reportes (HU05) ----------
+# Presets de período del reporte: clave -> (rango, agrupación por defecto)
+PRESETS_REPORTE = (
+    ("dia", "Hoy"), ("semana", "Semana"), ("mes", "Mes"), ("anio", "Año"),
+)
+AGRUPACIONES = (("dia", "Día"), ("semana", "Semana"), ("mes", "Mes"), ("anio", "Año"))
+_TRUNC = {"dia": TruncDay, "semana": TruncWeek, "mes": TruncMonth, "anio": TruncYear}
+_MESES = ("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic")
+_DIAS = ("lun", "mar", "mié", "jue", "vie", "sáb", "dom")
+
+
+def _rango_preset(preset, hoy):
+    """Fechas (desde, hasta) y agrupación sugerida de un preset; None si no existe."""
+    if preset == "dia":
+        return hoy, hoy, "dia"
+    if preset == "semana":  # de lunes a hoy
+        return hoy - timedelta(days=hoy.weekday()), hoy, "dia"
+    if preset == "mes":
+        return hoy.replace(day=1), hoy, "dia"
+    if preset == "anio":
+        return hoy.replace(month=1, day=1), hoy, "mes"
+    return None
+
+
+def _etiqueta_periodo(fecha, agrupar):
+    if agrupar == "anio":
+        return str(fecha.year)
+    if agrupar == "mes":
+        return f"{_MESES[fecha.month - 1]} {fecha.year}"
+    if agrupar == "semana":
+        fin = fecha + timedelta(days=6)
+        return f"Sem. {fecha:%d/%m} – {fin:%d/%m}"
+    return f"{_DIAS[fecha.weekday()]} {fecha:%d/%m}"
+
+
 @rol_requerido("admin")
 def reportes(request):
     hoy = timezone.localdate()
-    desde = parse_date(request.GET.get("desde", "")) or hoy - timedelta(days=6)
-    hasta = parse_date(request.GET.get("hasta", "")) or hoy
+    preset = request.GET.get("periodo", "")
+    rango = _rango_preset(preset, hoy)
+    if rango:
+        desde, hasta, agrupar_def = rango
+    else:
+        preset = ""
+        desde = parse_date(request.GET.get("desde", "")) or hoy - timedelta(days=6)
+        hasta = parse_date(request.GET.get("hasta", "")) or hoy
+        agrupar_def = "dia"
+    agrupar = request.GET.get("agrupar", "")
+    if agrupar not in _TRUNC:
+        agrupar = agrupar_def
     canal = request.GET.get("canal", "todos")
     qs = Pedido.objects.exclude(estado="anulado").filter(
         fecha_hora__date__gte=desde, fecha_hora__date__lte=hasta)
@@ -220,15 +264,32 @@ def reportes(request):
                   .annotate(n=Count("id"), t=Sum("monto")).order_by("-t"))
     nombres = dict(Pago.Metodo.choices)
     por_metodo = [{"metodo": nombres.get(m["metodo"], m["metodo"]), "n": m["n"], "t": m["t"]} for m in por_metodo]
-    por_dia = (qs.values("fecha_hora__date").annotate(n=Count("id"), t=Sum("total")).order_by("fecha_hora__date"))
+    periodo = (qs.annotate(p=_TRUNC[agrupar]("fecha_hora")).values("p")
+               .annotate(n=Count("id"), t=Sum("total")).order_by("p"))
+    serie = [{"etiqueta": _etiqueta_periodo(timezone.localtime(d["p"]).date(), agrupar),
+              "n": d["n"], "t": d["t"]} for d in periodo]
     total = qs.aggregate(t=Sum("total"))["t"] or 0
+    top = list(qs.values("detalles__producto__nombre").annotate(c=Sum("detalles__cantidad"))
+               .order_by("-c")[:8])
+    top = [{"nombre": t["detalles__producto__nombre"], "c": t["c"]}
+           for t in top if t["detalles__producto__nombre"]]
+    # Datos para los gráficos (se entregan como JSON seguro con json_script)
+    graficos = {
+        "canal": [{"etiqueta": c["canal"], "valor": float(c["total"]), "extra": c["pedidos"]}
+                  for c in por_canal if c["total"]],
+        "metodo": [{"etiqueta": m["metodo"], "valor": float(m["t"] or 0), "extra": m["n"]}
+                   for m in por_metodo if m["t"]],
+        "top": [{"etiqueta": t["nombre"], "valor": float(t["c"] or 0)} for t in top],
+    }
     return render(request, "sistema/reportes.html", {
         "desde": desde, "hasta": hasta, "canal": canal, "por_canal": por_canal,
-        "por_dia": por_dia, "total": total, "n": qs.count(),
+        "serie": serie, "total": total, "n": qs.count(),
         "ticket_promedio": agg["ticket_promedio"] or 0, "por_metodo": por_metodo,
-        "max_dia": max((d["t"] for d in por_dia), default=0) or 1,
-        "top": (qs.values("detalles__producto__nombre").annotate(c=Sum("detalles__cantidad"))
-                .order_by("-c")[:5]),
+        "max_periodo": max((d["t"] for d in serie), default=0) or 1,
+        "top": top, "graficos": graficos,
+        "preset": preset, "presets": PRESETS_REPORTE,
+        "agrupar": agrupar, "agrupaciones": AGRUPACIONES,
+        "agrupar_nombre": dict(AGRUPACIONES)[agrupar],
     })
 
 

@@ -4,12 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block titulo %}El Combo Completo{% endblock %}</title>
+<link rel="icon" type="image/png" href="{% static 'sistema/img/favicon.png' %}">
+<link rel="apple-touch-icon" href="{% static 'sistema/img/apple-touch-icon.png' %}">
 <link rel="stylesheet" href="{% static 'sistema/app.css' %}">
 </head>
 <body class="{% block clase %}{% endblock %}">
 {% if user.is_authenticated %}
 <header class="barra">
-  <a class="marca" href="{% url 'inicio' %}">El Combo Completo</a>
+  <a class="marca" href="{% url 'inicio' %}"><img class="logo" src="{% static 'sistema/img/logo.png' %}" alt="" width="44" height="44"><span>El Combo Completo</span></a>
   <nav aria-label="Principal">{% with n=request.resolver_match.url_name %}
     {% if user.rol == 'garzon' or user.rol == 'admin' %}<a href="{% url 'garzon' %}" {% if n == 'garzon' %}class="activo" aria-current="page"{% endif %}>Pedidos</a>{% endif %}
     {% if user.rol == 'cocina' or user.rol == 'admin' %}<a href="{% url 'cocina' %}" {% if n == 'cocina' %}class="activo" aria-current="page"{% endif %}>Cocina</a>{% endif %}

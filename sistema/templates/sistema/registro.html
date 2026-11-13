@@ -1,8 +1,10 @@
 {% extends "sistema/base.html" %}
+{% load static %}
 {% block titulo %}Crear cuenta · El Combo Completo{% endblock %}
 {% block clase %}centrado{% endblock %}
 {% block contenido %}
 <section class="panel acceso">
+  <img class="logo-grande" src="{% static 'sistema/img/logo.png' %}" alt="El Combo Completo" width="140" height="140">
   <h1>Crear cuenta</h1>
   <p class="suave">Tu cuenta nace con rol Garzón; un administrador puede cambiarlo.</p>
   <form method="post" novalidate>{% csrf_token %}

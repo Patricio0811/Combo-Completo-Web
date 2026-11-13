@@ -27,7 +27,9 @@ a{color:inherit}
 
 /* Barra superior */
 .barra{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;background:var(--barra);color:#f2f4f0;padding:8px 16px}
-.marca{font:700 1.2rem var(--ticket);text-decoration:none;margin-right:8px}
+.marca{display:inline-flex;align-items:center;gap:10px;font:700 1.2rem var(--ticket);text-decoration:none;margin-right:8px}
+.logo{width:44px;height:44px;display:block}
+.logo-grande{display:block;width:140px;height:140px;margin:0 auto 6px}
 .barra nav{display:flex;flex-wrap:wrap;gap:4px;flex:1}
 .barra nav a{padding:8px 14px;border-radius:var(--radio);text-decoration:none;font-weight:600;border:2px solid transparent}
 .barra nav a:hover{background:#ffffff22}
@@ -148,3 +150,15 @@ ul.plano{list-style:none;padding:0;margin:0} ul.plano li{padding:8px 0;border-bo
 .ticket .detalle-prod p{margin:2px 0} .ticket .detalle-prod .insumos{color:var(--suave);font-size:.92rem}
 .ticket.abierto .linea-prod{font-size:1.45rem}
 .ticket footer .btn:first-child{flex:0 0 auto}
+/* Reportes: presets y gráficos */
+.presets{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.grafico{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-top:8px}
+.grafico .torta{width:190px;height:190px;flex:0 0 auto}
+.grafico .trozo{stroke:var(--papel);stroke-width:2}
+.leyenda{list-style:none;margin:0;padding:0;flex:1;min-width:200px}
+.leyenda li{display:grid;grid-template-columns:14px 1fr auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--linea)}
+.leyenda .muestra{width:14px;height:14px;border-radius:3px}
+.leyenda small{margin-left:4px}
+.grafico .barras{width:100%;height:auto;max-height:380px}
+.barras .eje,.barras .valor{fill:var(--tinta);font:600 15px system-ui,sans-serif}
+.grafico .vacio{width:100%;margin:0}

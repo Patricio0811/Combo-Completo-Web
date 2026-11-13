@@ -1,8 +1,11 @@
 {% extends "sistema/base.html" %}
-{% load sistema_extras %}
+{% load static sistema_extras %}
 {% block titulo %}Reportes · El Combo Completo{% endblock %}
 {% block contenido %}
-<header class="encabezado"><h1>Reporte de ventas</h1><p class="guia">Elige el período y el canal para ver cuánto se vendió. Los pedidos anulados no se cuentan.</p></header>
+<header class="encabezado"><h1>Reporte de ventas</h1><p class="guia">Elige un período rápido o fija las fechas para ver cuánto se vendió. Los pedidos anulados no se cuentan.</p></header>
+<nav class="presets" aria-label="Período rápido">
+  {% for clave, nombre in presets %}<a class="btn {% if preset == clave %}primario{% endif %}" href="?periodo={{ clave }}&amp;canal={{ canal }}" {% if preset == clave %}aria-current="true"{% endif %}>{{ nombre }}</a>{% endfor %}
+</nav>
 <form method="get" class="filtros panel">
   <label>Desde <input type="date" name="desde" value="{{ desde|date:'Y-m-d' }}"></label>
   <label>Hasta <input type="date" name="hasta" value="{{ hasta|date:'Y-m-d' }}"></label>
@@ -11,23 +14,28 @@
     <option value="local" {% if canal == 'local' %}selected{% endif %}>Local</option>
     <option value="retiro" {% if canal == 'retiro' %}selected{% endif %}>Retiro</option>
     <option value="domicilio" {% if canal == 'domicilio' %}selected{% endif %}>Domicilio</option></select></label>
+  <label>Agrupar por <select name="agrupar">
+    {% for clave, nombre in agrupaciones %}<option value="{{ clave }}" {% if agrupar == clave %}selected{% endif %}>{{ nombre }}</option>{% endfor %}</select></label>
   <button class="btn primario">Ver reporte</button>
 </form>
 <p class="resumen"><strong>${{ total|clp }}</strong> en {{ n }} pedido{{ n|pluralize }} (sin anulados) · Ticket promedio <strong>${{ ticket_promedio|clp }}</strong></p>
 <div class="dos">
   <section class="panel"><h2>Por canal</h2>
-    <table><thead><tr><th>Canal</th><th class="num">Pedidos</th><th class="num">Ventas</th></tr></thead><tbody>
-    {% for c in por_canal %}<tr><td>{{ c.canal }}</td><td class="num">{{ c.pedidos }}</td><td class="num">${{ c.total|clp }}</td></tr>{% endfor %}</tbody></table></section>
-  <section class="panel"><h2>Por día</h2>
-    <table><thead><tr><th>Día</th><th class="num">Pedidos</th><th class="num">Ventas</th></tr></thead><tbody>
-    {% for d in por_dia %}<tr><td>{{ d.fecha_hora__date|date:"D d/m" }}</td><td class="num">{{ d.n }}</td><td class="num">${{ d.t|clp }}
-      <div class="barra-dia" style="width:{% widthratio d.t max_dia 100 %}%"></div></td></tr>
-    {% empty %}<tr><td colspan="3" class="vacio">Sin ventas en el período.</td></tr>{% endfor %}</tbody></table></section>
+    <div class="grafico" data-tipo="torta" data-fuente="datos-canal" data-extra="pedido" data-vacio="Sin ventas en el período."></div></section>
+  <section class="panel"><h2>Por medio de pago</h2>
+    <div class="grafico" data-tipo="torta" data-fuente="datos-metodo" data-extra="pago" data-vacio="Sin pagos en el período."></div></section>
 </div>
-<section class="panel"><h2>Por medio de pago</h2>
-  <table><thead><tr><th>Medio</th><th class="num">Pagos</th><th class="num">Monto</th></tr></thead><tbody>
-  {% for m in por_metodo %}<tr><td>{{ m.metodo }}</td><td class="num">{{ m.n }}</td><td class="num">${{ m.t|clp }}</td></tr>
-  {% empty %}<tr><td colspan="3" class="vacio">Sin pagos en el período.</td></tr>{% endfor %}</tbody></table></section>
-<section class="panel"><h2>Más vendidos</h2>
-  <ol>{% for t in top %}<li>{{ t.detalles__producto__nombre }} · {{ t.c }} un.</li>{% empty %}<li class="suave">Sin datos.</li>{% endfor %}</ol></section>
+<div class="dos">
+  <section class="panel"><h2>Ventas por {{ agrupar_nombre|lower }}</h2>
+    <table><thead><tr><th>{{ agrupar_nombre }}</th><th class="num">Pedidos</th><th class="num">Ventas</th></tr></thead><tbody>
+    {% for d in serie %}<tr><td>{{ d.etiqueta }}</td><td class="num">{{ d.n }}</td><td class="num">${{ d.t|clp }}
+      <div class="barra-dia" style="width:{% widthratio d.t max_periodo 100 %}%"></div></td></tr>
+    {% empty %}<tr><td colspan="3" class="vacio">Sin ventas en el período.</td></tr>{% endfor %}</tbody></table></section>
+  <section class="panel"><h2>Más vendidos</h2>
+    <div class="grafico" data-tipo="barras" data-fuente="datos-top" data-unidad="un." data-vacio="Sin datos."></div></section>
+</div>
+{{ graficos.canal|json_script:"datos-canal" }}
+{{ graficos.metodo|json_script:"datos-metodo" }}
+{{ graficos.top|json_script:"datos-top" }}
 {% endblock %}
+{% block js %}<script src="{% static 'sistema/graficos.js' %}"></script>{% endblock %}

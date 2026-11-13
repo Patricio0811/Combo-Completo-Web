@@ -181,6 +181,33 @@ class CrudRegistroReportesTests(Base):
         self.assertEqual(r.context["n"], 1)
         self.assertEqual(r.context["por_canal"][0]["pedidos"], 1)
 
+    def test_reportes_presets_y_agrupacion(self):
+        self.pedir()
+        self.client.force_login(self.admin)
+        for preset in ("dia", "semana", "mes", "anio"):
+            r = self.client.get(reverse("reportes"), {"periodo": preset})
+            self.assertEqual(r.status_code, 200)
+            self.assertEqual(r.context["preset"], preset)
+            self.assertEqual(r.context["n"], 1)
+            self.assertEqual(len(r.context["serie"]), 1)
+        self.assertEqual(self.client.get(reverse("reportes"), {"periodo": "anio"}).context["agrupar"], "mes")
+        r = self.client.get(reverse("reportes"), {"periodo": "anio", "agrupar": "semana"})
+        self.assertEqual(r.context["agrupar"], "semana")
+        self.assertTrue(r.context["serie"][0]["etiqueta"].startswith("Sem."))
+        r = self.client.get(reverse("reportes"), {"periodo": "x'; DROP TABLE--", "agrupar": "<script>"})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.context["preset"], "")
+        self.assertEqual(r.context["agrupar"], "dia")
+
+    def test_reportes_entrega_datos_de_graficos(self):
+        self.pedir()
+        self.client.force_login(self.admin)
+        r = self.client.get(reverse("reportes"))
+        self.assertContains(r, 'id="datos-canal"')
+        self.assertContains(r, 'id="datos-metodo"')
+        self.assertContains(r, 'id="datos-top"')
+        self.assertTrue(r.context["graficos"]["top"])
+
     def test_caja_lista_solo_saldo_pendiente(self):
         p = self.pedir()
         self.client.force_login(self.cajero)

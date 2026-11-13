@@ -1,8 +1,10 @@
 {% extends "sistema/base.html" %}
+{% load static %}
 {% block titulo %}Ingresar · El Combo Completo{% endblock %}
 {% block clase %}centrado{% endblock %}
 {% block contenido %}
 <section class="panel acceso">
+  <img class="logo-grande" src="{% static 'sistema/img/logo.png' %}" alt="El Combo Completo" width="140" height="140">
   <h1>El Combo Completo</h1>
   <p class="suave">Ingresa con tu usuario del local.</p>
   {% if form.errors %}<p class="aviso error">Usuario o contraseña incorrectos.</p>{% endif %}
