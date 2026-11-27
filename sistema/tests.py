@@ -49,6 +49,15 @@ class PedidoTests(Base):
         self.pedir()
         self.assertEqual(AlertaStock.objects.filter(atendida=False).count(), 1)
 
+    def test_pedido_supera_stock_sin_guardar_pedido(self):
+        with self.assertRaisesRegex(services.ErrorNegocio, "No hay stock suficiente"):
+            self.pedir(cant=11)
+
+        self.pan.refresh_from_db()
+        self.assertEqual(self.pan.stock_actual, Decimal("10"))
+        self.assertEqual(Pedido.objects.count(), 0)
+        self.assertEqual(Comanda.objects.count(), 0)
+
     def test_datos_del_cliente_van_cifrados_en_la_base(self):
         self.pedir("domicilio", {"nombre": "Luis", "telefono": "+56911112222", "direccion": "Calle Secreta 123"})
         with connection.cursor() as c:
