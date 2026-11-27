@@ -4,7 +4,6 @@ from decimal import Decimal
 
 from django.db import transaction
 from django.db.models import Sum
-from django.utils import timezone
 
 from .models import (
     Agregado, AlertaStock, CierreCaja, Cliente, Comanda, DetalleAgregado, DetallePedido, Insumo,
@@ -13,7 +12,7 @@ from .models import (
 )
 
 CANALES = ("local", "retiro", "domicilio")
-MAX_CANTIDAD = 99   # unidades máximas de un mismo producto en un pedido
+MAX_CANTIDAD_AGREGADO = 99
 
 
 class ErrorNegocio(Exception):
@@ -44,69 +43,39 @@ def auditar(usuario, accion, **detalle):
     RegistroAuditoria.objects.create(usuario=usuario, accion=accion, detalle=detalle)
 
 
-def _leer_items(items):
-    """Valida las líneas del pedido: ids y cantidades enteras positivas, con tope. Suma las líneas repetidas."""
-    if not isinstance(items, (list, tuple)):
-        raise ErrorNegocio("Datos del pedido no válidos.")
-    pedidas = {}
-    for i in items:
-        try:
-            pid, cant_txt = str(i["producto"]).strip(), str(i["cantidad"]).strip()
-        except (KeyError, TypeError):
-            raise ErrorNegocio("Datos del pedido no válidos.")
-        if not _ENTERO.match(pid):
-            raise ErrorNegocio("Hay un producto no válido en el pedido.")
-        if not _ENTERO.match(cant_txt):
-            raise ErrorNegocio("Las cantidades deben ser números enteros positivos (sin decimales ni signos).")
-        cant = int(cant_txt)
-        if cant == 0:
-            continue                      # línea en cero: se ignora (el garzón la quitó)
-        pedidas[int(pid)] = pedidas.get(int(pid), 0) + cant
-    if any(c > MAX_CANTIDAD for c in pedidas.values()):
-        raise ErrorNegocio(f"La cantidad máxima por producto es {MAX_CANTIDAD}.")
-    return list(pedidas.items())
-
-
 def _leer_agregados(agregados):
-    """Valida los agregados del pedido (salsas, más papas, etc.): ids y cantidades enteras positivas, con tope.
-    Es opcional: sin agregados devuelve una lista vacía."""
     if not agregados:
         return []
     if not isinstance(agregados, (list, tuple)):
         raise ErrorNegocio("Datos de los agregados no válidos.")
     pedidos = {}
-    for a in agregados:
+    for agregado in agregados:
         try:
-            aid, cant_txt = str(a["agregado"]).strip(), str(a["cantidad"]).strip()
+            aid = str(agregado["agregado"]).strip()
+            cantidad_txt = str(agregado["cantidad"]).strip()
         except (KeyError, TypeError):
             raise ErrorNegocio("Datos de los agregados no válidos.")
         if not _ENTERO.match(aid):
             raise ErrorNegocio("Hay un agregado no válido en el pedido.")
-        if not _ENTERO.match(cant_txt):
+        if not _ENTERO.match(cantidad_txt):
             raise ErrorNegocio("Las cantidades de los agregados deben ser números enteros positivos.")
-        cant = int(cant_txt)
-        if cant == 0:
+        cantidad = int(cantidad_txt)
+        if cantidad == 0:
             continue
-        pedidos[int(aid)] = pedidos.get(int(aid), 0) + cant
-    if any(c > MAX_CANTIDAD for c in pedidos.values()):
-        raise ErrorNegocio(f"La cantidad máxima por agregado es {MAX_CANTIDAD}.")
+        pedidos[int(aid)] = pedidos.get(int(aid), 0) + cantidad
+    if any(cantidad > MAX_CANTIDAD_AGREGADO for cantidad in pedidos.values()):
+        raise ErrorNegocio(f"La cantidad máxima por agregado es {MAX_CANTIDAD_AGREGADO}.")
     return list(pedidos.items())
 
 
 @transaction.atomic
 def crear_pedido(usuario, canal, datos, items, observaciones="", agregados=None):
-    """Pedido, comanda y descuento de stock se guardan JUNTOS en una sola transacción:
-    si algo falla (por ejemplo, no hay stock) no queda nada guardado a medias."""
+    """Guarda el pedido, la comanda y los descuentos de stock en una sola transacción."""
     if canal not in CANALES:
         raise ErrorNegocio("Debes elegir el canal de venta: Local, Retiro o Domicilio.")
-    items = _leer_items(items)
+    items = [(int(i["producto"]), int(i["cantidad"])) for i in items if int(i["cantidad"]) > 0]
     if not items:
         raise ErrorNegocio("El pedido no tiene productos.")
-    productos = Producto.objects.in_bulk([p for p, _ in items])
-    for pid, _ in items:
-        prod = productos.get(pid)
-        if not prod or not prod.activo:
-            raise ErrorNegocio("Hay un producto que no existe o está inactivo.")
     agregados = _leer_agregados(agregados)
     extras = Agregado.objects.in_bulk([a for a, _ in agregados])
     for aid, _ in agregados:
@@ -125,56 +94,56 @@ def crear_pedido(usuario, canal, datos, items, observaciones="", agregados=None)
             raise ErrorNegocio("Indica el nombre de quien retira.")
         pedido = PedidoRetiro.objects.create(nombre_retiro=nombre[:100], **base)
     else:
-        campos = {k: str(datos.get(k, "")).strip() for k in ("nombre", "telefono", "direccion")}
-        faltan = [etq for k, etq in (("nombre", "el nombre"), ("telefono", "el teléfono"),
-                                      ("direccion", "la dirección")) if not campos[k]]
-        if faltan:
-            raise ErrorNegocio("Para Domicilio falta indicar " + ", ".join(faltan[:-1]) +
-                               (" y " if len(faltan) > 1 else "") + faltan[-1] + ".")
+        nombre, tel, dire = (str(datos.get(k, "")).strip() for k in ("nombre", "telefono", "direccion"))
+        if not (nombre and tel and dire):
+            raise ErrorNegocio("Para Domicilio indica nombre, teléfono y dirección.")
         envio = leer_entero(datos.get("envio") or "0", "Costo de envío")
-        cliente = Cliente.objects.create(nombre=campos["nombre"][:100], telefono=campos["telefono"],
-                                         direccion=campos["direccion"])
+        cliente = Cliente.objects.create(nombre=nombre[:100], telefono=tel, direccion=dire)
         pedido = PedidoDomicilio.objects.create(cliente=cliente, costo_envio=envio, **base)
 
+    productos = Producto.objects.in_bulk([p for p, _ in items])
     for pid, cant in items:
-        prod = productos[pid]
+        prod = productos.get(pid)
+        if not prod or not prod.activo:
+            raise ErrorNegocio("Hay un producto que no existe o está inactivo.")
         DetallePedido.objects.create(pedido=pedido, producto=prod, cantidad=cant, precio_unitario=prod.precio)
-    for aid, cant in agregados:
+    for aid, cantidad in agregados:
         extra = extras[aid]
-        DetalleAgregado.objects.create(pedido=pedido, agregado=extra, cantidad=cant, precio_unitario=extra.precio)
+        DetalleAgregado.objects.create(
+            pedido=pedido, agregado=extra, cantidad=cantidad, precio_unitario=extra.precio)
     pedido.total = pedido.calcular_total()
     pedido.save(update_fields=["total"])
     Comanda.objects.create(pedido=pedido)
-    descontar_insumos(pedido.pk)          # misma transacción: si no hay stock, se deshace todo el pedido
+    descontar_insumos(pedido.pk)
     return pedido
-
-
-def _fmt(x):
-    return format(Decimal(x).normalize(), "f")
 
 
 @transaction.atomic
 def descontar_insumos(pedido_id):
-    """RF03: descuenta insumos según receta; RF04: crea alerta si queda bajo el mínimo.
-    Bloquea las filas de insumo (siempre en el mismo orden, para evitar bloqueos cruzados entre pedidos
-    simultáneos) y NO permite vender más de lo que hay: el stock nunca queda negativo."""
+    """Descuenta insumos de productos y agregados, sin permitir stock insuficiente."""
     pedido = Pedido.objects.get(pk=pedido_id)
     necesarios = {}
-    for det in pedido.detalles.select_related("producto"):
-        for rec in Receta.objects.filter(producto=det.producto):
-            necesarios[rec.insumo_id] = necesarios.get(rec.insumo_id, Decimal(0)) + rec.cantidad_por_unidad * det.cantidad
-    for det in pedido.agregados.select_related("agregado"):          # los agregados descuentan igual que un producto
-        for rec in RecetaAgregado.objects.filter(agregado=det.agregado):
-            necesarios[rec.insumo_id] = necesarios.get(rec.insumo_id, Decimal(0)) + rec.cantidad_por_unidad * det.cantidad
-    for insumo in Insumo.objects.select_for_update().filter(pk__in=necesarios).order_by("pk"):
-        cant = necesarios[insumo.pk]
-        if insumo.stock_actual < cant:
+    for detalle in pedido.detalles.select_related("producto"):
+        for receta in Receta.objects.filter(producto=detalle.producto):
+            necesarios[receta.insumo_id] = (
+                necesarios.get(receta.insumo_id, Decimal(0)) + receta.cantidad_por_unidad * detalle.cantidad)
+    for detalle in pedido.agregados.select_related("agregado"):
+        for receta in RecetaAgregado.objects.filter(agregado=detalle.agregado):
+            necesarios[receta.insumo_id] = (
+                necesarios.get(receta.insumo_id, Decimal(0)) + receta.cantidad_por_unidad * detalle.cantidad)
+    insumos = Insumo.objects.select_for_update().filter(pk__in=necesarios).order_by("pk")
+    for insumo in insumos:
+        cantidad = necesarios[insumo.pk]
+        if insumo.stock_actual < cantidad:
+            restante = format(insumo.stock_actual.normalize(), "f")
+            requerida = format(cantidad.normalize(), "f")
             raise ErrorNegocio(
-                f"No hay stock suficiente de «{insumo.nombre}»: quedan {_fmt(insumo.stock_actual)} {insumo.unidad} "
-                f"y el pedido necesita {_fmt(cant)}.")
-        insumo.stock_actual -= cant
+                f"No hay stock suficiente de «{insumo.nombre}»: quedan {restante} {insumo.unidad} "
+                f"y el pedido necesita {requerida}.")
+        insumo.stock_actual -= cantidad
         insumo.save(update_fields=["stock_actual"])
-        MovimientoInventario.objects.create(insumo=insumo, tipo="salida", cantidad=cant, pedido=pedido)
+        MovimientoInventario.objects.create(
+            insumo=insumo, tipo="salida", cantidad=cantidad, pedido=pedido)
         if insumo.bajo_minimo() and not insumo.alertas.filter(atendida=False).exists():
             AlertaStock.objects.create(insumo=insumo)
 
@@ -192,24 +161,18 @@ def cambiar_estado_comanda(comanda, nuevo):
 
 @transaction.atomic
 def anular_pedido(pedido, usuario, motivo):
-    """El stock solo se repone si la cocina todavía no empezó a preparar el pedido.
-    Si ya estaba en preparación o lista, los ingredientes se gastaron y el stock no cambia."""
     if pedido.estado == "anulado":
         raise ErrorNegocio("El pedido ya estaba anulado.")
     if not motivo.strip():
         raise ErrorNegocio("Indica el motivo de la anulación.")
-    comanda = Comanda.objects.filter(pedido=pedido).first()
-    repone = comanda is None or comanda.estado == "pendiente"
-    if repone:
-        for mov in MovimientoInventario.objects.filter(pedido=pedido, tipo="salida").select_related("insumo"):
-            insumo = Insumo.objects.select_for_update().get(pk=mov.insumo_id)
-            insumo.stock_actual += mov.cantidad
-            insumo.save(update_fields=["stock_actual"])
-            MovimientoInventario.objects.create(insumo=insumo, tipo="entrada", cantidad=mov.cantidad, pedido=pedido)
+    for mov in MovimientoInventario.objects.filter(pedido=pedido, tipo="salida").select_related("insumo"):
+        insumo = mov.insumo
+        insumo.stock_actual += mov.cantidad
+        insumo.save(update_fields=["stock_actual"])
+        MovimientoInventario.objects.create(insumo=insumo, tipo="entrada", cantidad=mov.cantidad, pedido=pedido)
     pedido.estado = "anulado"
     pedido.save(update_fields=["estado"])
-    auditar(usuario, "anulacion_pedido", pedido=pedido.pk, motivo=motivo, total=str(pedido.total),
-            stock_repuesto="si" if repone else "no (ya estaba en preparación)")
+    auditar(usuario, "anulacion_pedido", pedido=pedido.pk, motivo=motivo, total=str(pedido.total))
 
 
 @transaction.atomic
@@ -243,9 +206,6 @@ def registrar_pago(pedido, metodo, monto, usuario):
     if monto > pedido.saldo():
         raise ErrorNegocio("El monto supera el saldo pendiente del pedido.")
     Pago.objects.create(pedido=pedido, metodo=metodo, monto=monto, usuario=usuario)
-    if pedido.saldo() == 0 and pedido.fecha_pago is None:   # estado «Pagado»
-        pedido.fecha_pago = timezone.now()
-        pedido.save(update_fields=["fecha_pago"])
 
 
 def resumen_caja():
@@ -268,6 +228,6 @@ def cerrar_caja(usuario, contados):
         usuario=usuario, monto_esperado=esp_total, monto_contado=con_total,
         diferencia=con_total - esp_total, desglose=desglose)
     Pago.objects.filter(cierre__isnull=True).update(cierre=cierre)
-    auditar(usuario, "cierre_caja_con_diferencia" if cierre.diferencia != 0 else "cierre_caja",
-            cierre=cierre.pk, esperado=str(esp_total), contado=str(con_total), diferencia=str(cierre.diferencia))
+    if cierre.diferencia != 0:
+        auditar(usuario, "cierre_caja_con_diferencia", cierre=cierre.pk, diferencia=str(cierre.diferencia))
     return cierre

@@ -1,7 +1,9 @@
 """Pruebas de los Agregados (salsas, más papas, etc.): descuentan insumos como un producto."""
 import json
 from decimal import Decimal
+from io import StringIO
 
+from django.core.management import call_command
 from django.urls import reverse
 
 from . import services
@@ -75,6 +77,11 @@ class DescuentoDeAgregadosTests(AgregadosBase):
 
 
 class ApiYCrudDeAgregadosTests(AgregadosBase):
+    def test_datos_de_ejemplo_crean_agregados_y_sus_insumos(self):
+        call_command("cargar_datos", stdout=StringIO())
+        salsa = Agregado.objects.get(nombre="Salsa de ají")
+        self.assertEqual(salsa.recetas.get().insumo.nombre, "Salsa de ají")
+
     def test_pantalla_del_garzon_ofrece_agregados_activos(self):
         self.client.force_login(self.garzon)
         response = self.client.get(reverse("garzon"))
