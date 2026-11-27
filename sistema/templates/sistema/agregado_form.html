@@ -1,0 +1,38 @@
+{% extends "sistema/base.html" %}
+{% block titulo %}{% if object %}Editar{% else %}Nuevo{% endif %} agregado · El Combo Completo{% endblock %}
+{% block contenido %}
+<h1>{% if object %}Editar agregado{% else %}Nuevo agregado{% endif %}</h1>
+<form method="post" novalidate>
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  {% for campo in form %}
+    <p>
+      {% if campo.field.widget.input_type == "checkbox" %}{{ campo }} <label for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+      {% else %}<label for="{{ campo.id_for_label }}">{{ campo.label }}</label> {{ campo }}{% endif %}
+      {{ campo.errors }}
+    </p>
+  {% endfor %}
+
+  <h2>Insumos que descuenta</h2>
+  <p class="ayuda">Por cada unidad vendida de este agregado se descuenta del inventario la cantidad indicada. Deja en blanco las filas que no uses.</p>
+  {{ recetas.management_form }}
+  {{ recetas.non_form_errors }}
+  <table class="tabla">
+    <thead><tr><th>Insumo</th><th>Cantidad por unidad</th><th>Quitar</th></tr></thead>
+    <tbody>
+    {% for f in recetas %}
+      <tr>
+        <td>{{ f.id }}{{ f.insumo }}{{ f.insumo.errors }}</td>
+        <td>{{ f.cantidad_por_unidad }}{{ f.cantidad_por_unidad.errors }}</td>
+        <td>{% if f.instance.pk %}{{ f.DELETE }}{% endif %}{{ f.non_field_errors }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <p>
+    <button class="btn principal" type="submit">Guardar</button>
+    <a class="btn" href="{{ volver }}">Cancelar</a>
+  </p>
+</form>
+{% endblock %}

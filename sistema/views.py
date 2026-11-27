@@ -5,15 +5,15 @@ from decimal import Decimal, InvalidOperation
 from django.contrib import messages
 from django.db.models import Avg, Count, DecimalField, F, Q, Sum, Value
 from django.db.models.functions import Coalesce, TruncDay, TruncMonth, TruncWeek, TruncYear
-from django.http import Http404, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_POST
 
-from . import services
+from . import respaldo, services
 from .models import (
-    AlertaStock, Comanda, Insumo, Pago, Pedido, Producto, RegistroAuditoria, CierreCaja,
+    Agregado, AlertaStock, Comanda, Insumo, Pago, Pedido, PedidoDomicilio, Producto, RegistroAuditoria, CierreCaja,
 )
 from .permisos import rol_requerido
 from .services import ErrorNegocio
@@ -43,7 +43,9 @@ def inicio(request):
 def garzon(request):
     productos = [{"id": p.pk, "nombre": p.nombre, "precio": int(p.precio)}
                  for p in Producto.objects.filter(activo=True)]
-    return render(request, "sistema/garzon.html", {"productos": productos})
+    agregados = [{"id": a.pk, "nombre": a.nombre, "precio": int(a.precio)}
+                 for a in Agregado.objects.filter(activo=True)]
+    return render(request, "sistema/garzon.html", {"productos": productos, "agregados": agregados})
 
 
 @rol_requerido("garzon", api=True)
@@ -56,7 +58,8 @@ def api_pedido_crear(request):
         if canal not in ("retiro", "domicilio"):
             raise ErrorNegocio("Elige el canal de venta: Retiro o Domicilio.")
         pedido = services.crear_pedido(
-            request.user, canal, d.get("datos", {}), d.get("items", []), d.get("observaciones", ""))
+            request.user, canal, d.get("datos", {}), d.get("items", []), d.get("observaciones", ""),
+            d.get("agregados", []))
     except ErrorNegocio as e:
         return JsonResponse({"error": str(e)}, status=400)
     except (ValueError, KeyError, TypeError, InvalidOperation, AttributeError):
@@ -97,13 +100,23 @@ def _item_comanda(d):
     }
 
 
+def _item_agregado(a):
+    """Los agregados salen en la comanda como un ítem más, con el prefijo «+», y con los insumos que consumen."""
+    return {
+        "n": f"+ {a.agregado.nombre}", "c": a.cantidad, "d": "",
+        "ins": [{"n": r.insumo.nombre, "c": _cantidad(r.cantidad_por_unidad * a.cantidad), "u": r.insumo.unidad}
+                for r in a.agregado.recetas.all()],
+    }
+
+
 @rol_requerido("cocina", api=True)
 def api_comandas(request):
     """Ordenadas por hora de llegada. La pantalla consulta cada 2 s (RNF03: menos de 4 s)."""
     comandas = (Comanda.objects.exclude(estado="lista").exclude(pedido__estado="anulado")
                 .select_related("pedido", "pedido__pedidolocal", "pedido__pedidoretiro",
                                 "pedido__pedidodomicilio__cliente")
-                .prefetch_related("pedido__detalles__producto__recetas__insumo").order_by("hora_llegada"))
+                .prefetch_related("pedido__detalles__producto__recetas__insumo",
+                                  "pedido__agregados__agregado__recetas__insumo").order_by("hora_llegada"))
     ahora = timezone.now()
     data = []
     for c in comandas:
@@ -113,7 +126,7 @@ def api_comandas(request):
             "estado": c.estado, "obs": p.observaciones,
             "segundos": int((ahora - c.hora_llegada).total_seconds()),
             "hora": timezone.localtime(c.hora_llegada).strftime("%H:%M"),
-            "items": [_item_comanda(d) for d in p.detalles.all()],
+            "items": [_item_comanda(d) for d in p.detalles.all()] + [_item_agregado(a) for a in p.agregados.all()],
         })
     return JsonResponse({"comandas": data})
 
@@ -186,8 +199,10 @@ def caja(request):
                   .filter(total__gt=F("cobrado"))
                   .select_related("pedidolocal", "pedidoretiro", "pedidodomicilio__cliente"))
     esperado = services.resumen_caja()
+    pagados = (Pedido.objects.filter(fecha_pago__isnull=False).exclude(estado="anulado")
+               .select_related("pedidolocal", "pedidoretiro", "pedidodomicilio__cliente").order_by("-fecha_pago")[:8])
     return render(request, "sistema/caja.html", {
-        "pendientes": pendientes, "metodos": Pago.Metodo.choices,
+        "pendientes": pendientes, "pagados": pagados, "metodos": Pago.Metodo.choices,
         "esperado": [(m, n, esperado[m]) for m, n in Pago.Metodo.choices],
         "total_esperado": sum(esperado.values()), "cierres": CierreCaja.objects.all()[:5],
     })
@@ -305,3 +320,26 @@ def auditoria(request):
         "acciones": RegistroAuditoria.objects.values_list("accion", flat=True).distinct(),
     })
 
+
+# ---------- Domicilios: datos del cliente para quien despacha ----------
+@rol_requerido("garzon", "cajero")
+def domicilios(request):
+    """Teléfono y dirección se guardan cifrados; solo los ven garzón, cajero y administrador (no cocina).
+    Cada consulta queda en la auditoría (sin copiar los datos personales)."""
+    desde = timezone.now() - timedelta(days=1)
+    pedidos = (PedidoDomicilio.objects.exclude(estado="anulado").filter(fecha_hora__gte=desde)
+               .select_related("cliente").prefetch_related("pagos").order_by("estado", "-fecha_hora"))
+    services.auditar(request.user, "consulta_datos_domicilio", pedidos=len(pedidos))
+    return render(request, "sistema/domicilios.html", {"pedidos": pedidos})
+
+
+# ---------- Respaldo ----------
+@rol_requerido("admin")
+def respaldo_pagina(request):
+    if request.method == "POST":
+        contenido = respaldo.generar_respaldo()
+        services.auditar(request.user, "respaldo_descargado", bytes=len(contenido))
+        resp = HttpResponse(contenido, content_type="application/octet-stream")
+        resp["Content-Disposition"] = f'attachment; filename="{respaldo.nombre_archivo()}"'
+        return resp
+    return render(request, "sistema/respaldo.html")

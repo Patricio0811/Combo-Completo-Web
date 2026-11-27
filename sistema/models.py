@@ -53,6 +53,10 @@ class Insumo(models.Model):
 
     class Meta:
         ordering = ["nombre"]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(stock_actual__gte=0), name="insumo_stock_no_negativo"),
+            models.CheckConstraint(condition=models.Q(stock_minimo__gte=0), name="insumo_minimo_no_negativo"),
+        ]
 
     def __str__(self):
         return self.nombre
@@ -70,6 +74,28 @@ class Receta(models.Model):
         unique_together = ("producto", "insumo")
 
 
+class Agregado(models.Model):
+    """Extra que se suma a un pedido (salsas, más papas, etc.). Como un Producto, consume insumos según su receta."""
+    nombre = models.CharField(max_length=100)
+    precio = models.DecimalField(max_digits=10, decimal_places=0)
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["nombre"]
+
+    def __str__(self):
+        return self.nombre
+
+
+class RecetaAgregado(models.Model):
+    agregado = models.ForeignKey(Agregado, on_delete=models.CASCADE, related_name="recetas")
+    insumo = models.ForeignKey(Insumo, on_delete=models.PROTECT, related_name="recetas_agregado")
+    cantidad_por_unidad = models.DecimalField(max_digits=10, decimal_places=3)
+
+    class Meta:
+        unique_together = ("agregado", "insumo")
+
+
 class Pedido(models.Model):
     """Clase base. El canal se resuelve por herencia (Local, Retiro, Domicilio)."""
     class Estado(models.TextChoices):
@@ -83,6 +109,7 @@ class Pedido(models.Model):
     total = models.DecimalField(max_digits=12, decimal_places=0, default=0)
     observaciones = models.CharField(max_length=200, blank=True)
     usuario = models.ForeignKey(Usuario, on_delete=models.PROTECT, related_name="pedidos")
+    fecha_pago = models.DateTimeField("Pagado el", null=True, blank=True)   # se llena al quedar el saldo en 0
 
     class Meta:
         ordering = ["-fecha_hora"]
@@ -109,6 +136,7 @@ class Pedido(models.Model):
 
     def calcular_total(self):
         suma = sum((d.subtotal() for d in self.detalles.all()), Decimal(0))
+        suma += sum((a.subtotal() for a in self.agregados.all()), Decimal(0))
         if hasattr(self, "pedidodomicilio"):
             suma += self.pedidodomicilio.costo_envio
         return suma
@@ -118,6 +146,10 @@ class Pedido(models.Model):
 
     def saldo(self):
         return self.total - self.pagado()
+
+    @property
+    def esta_pagado(self):
+        return self.fecha_pago is not None
 
     def __str__(self):
         return f"Pedido #{self.pk}"
@@ -139,6 +171,17 @@ class PedidoDomicilio(Pedido):
 class DetallePedido(models.Model):
     pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, related_name="detalles")  # composición
     producto = models.ForeignKey(Producto, on_delete=models.PROTECT)
+    cantidad = models.PositiveIntegerField()
+    precio_unitario = models.DecimalField(max_digits=10, decimal_places=0)
+
+    def subtotal(self):
+        return self.precio_unitario * self.cantidad
+
+
+class DetalleAgregado(models.Model):
+    """Agregado pedido dentro de un pedido (el precio queda congelado, igual que en DetallePedido)."""
+    pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, related_name="agregados")
+    agregado = models.ForeignKey(Agregado, on_delete=models.PROTECT)
     cantidad = models.PositiveIntegerField()
     precio_unitario = models.DecimalField(max_digits=10, decimal_places=0)
 

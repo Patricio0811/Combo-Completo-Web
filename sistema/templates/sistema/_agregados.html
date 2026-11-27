@@ -1,0 +1,29 @@
+{# Apartado «Agregados» de la ventana de productos. Se incluye con: {% include "sistema/_agregados.html" %} #}
+<section class="apartado-agregados" aria-labelledby="titulo-agregados">
+  <div class="encabezado-seccion">
+    <h2 id="titulo-agregados">Agregados</h2>
+    <a class="btn principal" href="{% url 'agregado_crear' %}">Nuevo agregado</a>
+  </div>
+  <p class="ayuda">Salsas, más papas y otros extras que se suman a un pedido. Descuentan insumos del inventario igual que un producto.</p>
+  <table class="tabla">
+    <thead>
+      <tr><th>Agregado</th><th>Precio</th><th>Insumos que descuenta</th><th>Estado</th><th><span class="solo-lector">Acciones</span></th></tr>
+    </thead>
+    <tbody>
+    {% for a in agregados %}
+      <tr>
+        <td>{{ a.nombre }}</td>
+        <td>${{ a.precio|floatformat:0 }}</td>
+        <td>{% for r in a.recetas.all %}{{ r.insumo.nombre }} ({{ r.cantidad_por_unidad|floatformat:"-3" }} {{ r.insumo.unidad }}){% if not forloop.last %}, {% endif %}{% empty %}<em>Sin insumos: no descuenta stock</em>{% endfor %}</td>
+        <td>{% if a.activo %}Activo{% else %}Inactivo{% endif %}</td>
+        <td>
+          <a class="btn chico" href="{% url 'agregado_editar' a.pk %}">Editar</a>
+          <a class="btn chico riesgo" href="{% url 'agregado_eliminar' a.pk %}">Eliminar</a>
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="5">Todavía no hay agregados.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>

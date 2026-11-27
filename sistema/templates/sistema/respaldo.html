@@ -1,0 +1,11 @@
+{% extends "sistema/base.html" %}
+{% block titulo %}Respaldo · El Combo Completo{% endblock %}
+{% block contenido %}
+<header class="encabezado"><h1>Respaldo</h1><p class="guia">Descarga una copia cifrada de los datos. Sin la clave de cifrado configurada en el sistema no se puede leer.</p></header>
+<section class="panel">
+  <h2>Descargar respaldo</h2>
+  <p>Incluye los datos de la aplicación. Guárdalo en un lugar seguro, fuera de este servidor.</p>
+  <form method="post">{% csrf_token %}<button class="btn primario">Descargar respaldo cifrado</button></form>
+  <p class="ayuda">La restauración de respaldos no está disponible desde esta pantalla.</p>
+</section>
+{% endblock %}

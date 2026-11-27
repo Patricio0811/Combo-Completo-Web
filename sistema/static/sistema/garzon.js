@@ -1,41 +1,55 @@
 (() => {
   const productos = JSON.parse(document.getElementById("datos-productos").textContent);
+  const agregados = JSON.parse(document.getElementById("datos-agregados").textContent);
   const $ = (id) => document.getElementById(id);
   const clp = (n) => "$" + Math.round(n).toLocaleString("es-CL");
-  const carrito = new Map(); // id -> cantidad
+  const carrito = new Map(); // tipo:id -> cantidad
   let inicio = null;         // para medir el objetivo de RNF01 (menos de 30 s)
 
   const canalActual = () => (document.querySelector('input[name="canal"]:checked') || {}).value || null;
   const csrf = () => (document.cookie.match(/csrftoken=([^;]+)/) || [])[1];
   const tocar = () => { if (!inicio) inicio = Date.now(); };
 
-  // ---- productos ----
-  const grilla = $("productos");
-  productos.forEach((p) => {
-    const b = document.createElement("button");
-    b.type = "button"; b.className = "btn producto";
-    const n = document.createElement("span"); n.textContent = p.nombre;
-    const pr = document.createElement("small"); pr.textContent = clp(p.precio);
-    b.append(n, pr);
-    b.addEventListener("click", () => { tocar(); carrito.set(p.id, (carrito.get(p.id) || 0) + 1); pintar(); });
-    grilla.append(b);
-  });
+  function dibujarOpciones(elemento, opciones, tipo) {
+    const grilla = $(elemento);
+    opciones.forEach((opcion) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "btn producto";
+      const n = document.createElement("span"); n.textContent = opcion.nombre;
+      const pr = document.createElement("small"); pr.textContent = clp(opcion.precio);
+      b.append(n, pr);
+      b.addEventListener("click", () => {
+        tocar();
+        const key = `${tipo}:${opcion.id}`;
+        carrito.set(key, Math.min(99, (carrito.get(key) || 0) + 1));
+        pintar();
+      });
+      grilla.append(b);
+    });
+  }
+  dibujarOpciones("productos", productos, "producto");
+  dibujarOpciones("agregados", agregados, "agregado");
 
   // ---- comanda ----
   function pintar() {
     const ul = $("lineas"); ul.replaceChildren();
     let total = 0;
     if (!carrito.size) { const li = document.createElement("li"); li.className = "suave"; li.textContent = "Aún no hay productos."; ul.append(li); }
-    carrito.forEach((cant, id) => {
-      const p = productos.find((x) => x.id === id); total += p.precio * cant;
+    carrito.forEach((cant, key) => {
+      const [tipo, id] = key.split(":");
+      const opciones = tipo === "producto" ? productos : agregados;
+      const opcion = opciones.find((x) => x.id === Number(id));
+      total += opcion.precio * cant;
+      const nombre = tipo === "agregado" ? `+ ${opcion.nombre}` : opcion.nombre;
       const li = document.createElement("li");
-      const nom = document.createElement("span"); nom.textContent = `${p.nombre}`;
+      const nom = document.createElement("span"); nom.textContent = nombre;
       const ctl = document.createElement("span"); ctl.className = "ctl";
-      const menos = btn("−", `Quitar uno de ${p.nombre}`, () => { cant > 1 ? carrito.set(id, cant - 1) : carrito.delete(id); pintar(); });
+      const menos = btn("−", `Quitar uno de ${nombre}`, () => { cant > 1 ? carrito.set(key, cant - 1) : carrito.delete(key); pintar(); });
       const q = document.createElement("b"); q.textContent = cant;
-      const mas = btn("+", `Agregar uno de ${p.nombre}`, () => { carrito.set(id, cant + 1); pintar(); });
+      const mas = btn("+", `Agregar uno de ${nombre}`, () => { carrito.set(key, Math.min(99, cant + 1)); pintar(); });
+      mas.disabled = cant >= 99;
       ctl.append(menos, q, mas);
-      const sub = document.createElement("span"); sub.className = "num"; sub.textContent = clp(p.precio * cant);
+      const sub = document.createElement("span"); sub.className = "num"; sub.textContent = clp(opcion.precio * cant);
       li.append(nom, ctl, sub); ul.append(li);
     });
     if (canalActual() === "domicilio") total += Number($("f-denvio").value) || 0;
@@ -59,7 +73,7 @@
   function faltante() {
     const c = canalActual();
     if (!c) return "Elige el canal de venta.";
-    if (!carrito.size) return "Agrega al menos un producto.";
+    if (![...carrito.keys()].some((key) => key.startsWith("producto:"))) return "Agrega al menos un producto.";
     if (c === "retiro" && !$("f-retiro").value.trim()) return "Indica el nombre de quien retira.";
     if (c === "domicilio" && !($("f-dnombre").value.trim() && $("f-dtel").value.trim() && $("f-ddir").value.trim()))
       return "Completa nombre, teléfono y dirección.";
@@ -78,8 +92,15 @@
       : { nombre: $("f-dnombre").value, telefono: $("f-dtel").value, direccion: $("f-ddir").value, envio: $("f-denvio").value };
     $("enviar").disabled = true;
     try {
+      const lineas = [...carrito];
       const r = await fetch("/api/pedidos/", { method: "POST", headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
-        body: JSON.stringify({ canal: c, datos, observaciones: $("f-obs").value, items: [...carrito].map(([producto, cantidad]) => ({ producto, cantidad })) }) });
+        body: JSON.stringify({
+          canal: c, datos, observaciones: $("f-obs").value,
+          items: lineas.filter(([key]) => key.startsWith("producto:"))
+            .map(([key, cantidad]) => ({ producto: Number(key.split(":")[1]), cantidad })),
+          agregados: lineas.filter(([key]) => key.startsWith("agregado:"))
+            .map(([key, cantidad]) => ({ agregado: Number(key.split(":")[1]), cantidad })),
+        }) });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "No se pudo enviar el pedido.");
       const seg = Math.round((Date.now() - inicio) / 1000);
