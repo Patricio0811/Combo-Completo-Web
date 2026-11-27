@@ -3,7 +3,7 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    dependencies = [("sistema", "0002_producto_detalle")]
+    dependencies = [("sistema", "0003_pagado_y_stock_no_negativo")]
 
     operations = [
         migrations.CreateModel(
