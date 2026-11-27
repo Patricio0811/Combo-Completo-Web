@@ -60,27 +60,28 @@ El archivo `.env` no se sube a git (está en `.gitignore`).
 
 ## Usuarios de prueba
 
-`cargar_datos` crea dos usuarios cuya clave es igual al nombre:
+`cargar_datos` crea dos usuarios con claves aleatorias, que muestra una sola vez. Para pruebas locales puedes usar `--demo`:
 
-| Usuario | Clave | Rol |
+| Usuario | Clave con `--demo` | Rol |
 |---|---|---|
 | `cocina` | `cocina` | Personal de cocina |
 | `admin` | `admin` | Administrador |
 
-No existe el registro público de cuentas: solo el administrador crea usuarios y roles, en `/admin/` (Usuarios y roles). El administrador también puede tomar pedidos y cobrar.
-**Cambia estas claves antes de la demo o de usar el sistema en el local.**
+`--demo` solo se permite con una base local. No existe el registro público de cuentas: solo el administrador crea usuarios y roles, en `/admin/` (Usuarios y roles). El administrador también puede tomar pedidos y cobrar.
 
 ## Pantallas por rol
 
 | Rol | Pantalla | Qué hace |
 |---|---|---|
-| Garzón (o administrador) | `/garzon/` | Pedido en una pantalla: canal obligatorio (Retiro o Domicilio) → datos → productos. Retiro pide el nombre de quien retira; Domicilio pide nombre, teléfono, dirección y costo de envío. Aviso de "pedido listo" |
+| Garzón (o administrador) | `/garzon/` | Pedido en una pantalla: canal obligatorio (Retiro o Domicilio) → datos → productos y agregados opcionales. Los agregados suman al total y se muestran en la comanda de cocina |
 | Cocina | `/cocina/` | Comandas por hora de llegada, se actualiza cada 2 s. «Ver detalle» amplía la comanda y muestra qué contiene cada producto y los insumos que usa |
 | Cajero | `/caja/` | Cobro por medio de pago y cierre de caja |
-| Administrador | `/productos/` | CRUD de productos: nombre, precio, detalle (qué contiene) y receta (insumos del inventario que se descuentan al vender) |
+| Administrador | `/productos/` | CRUD de productos y agregados. Cada agregado tiene precio y receta de insumos; su stock se descuenta al venderlo |
 | Administrador | `/inventario/` | Stock, alertas, entradas, ajustes y CRUD de insumos |
 | Administrador | `/reportes/` | Ventas por período, canal, día y medio de pago; ticket promedio; más vendidos |
 | Administrador | `/auditoria/` | Registro de anulaciones, ajustes y diferencias de caja |
+| Garzón, cajero o administrador | `/domicilios/` | Consulta de los datos de clientes para despachar pedidos recientes |
+| Administrador | `/respaldo/` | Descarga un respaldo cifrado de los datos |
 | Administrador | `/admin/` | Usuarios y roles |
 
 ## Guía rápida para probar (demo)
@@ -101,7 +102,7 @@ No existe el registro público de cuentas: solo el administrador crea usuarios y
 ```powershell
 python manage.py test
 ```
-Son 71 pruebas. Para correrlas contra PostgreSQL, deja `DATABASE_URL` definida en `.env` (el usuario de la base necesita permiso `CREATEDB`; en el servidor local `postgres` ya lo tiene).
+Para correrlas contra PostgreSQL, deja `DATABASE_URL` definida en `.env` (el usuario de la base necesita permiso `CREATEDB`; en el servidor local `postgres` ya lo tiene).
 
 ## Estilo y validaciones del front end
 

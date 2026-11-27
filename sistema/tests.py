@@ -477,3 +477,17 @@ class InventarioYCifradoTests(Base):
                 self.assertEqual(Cliente.objects.get(pk=c.pk).telefono, "12345")             # con ella: se lee
                 call_command("reencriptar_clientes", stdout=StringIO())
             self.assertEqual(Cliente.objects.get(pk=c.pk).direccion, "Calle 9")              # ya sin la clave antigua
+
+
+class DomiciliosYRespaldoTests(Base):
+    def test_domicilios_restringe_datos_a_roles_autorizados(self):
+        self.client.force_login(self.garzon)
+        self.assertEqual(self.client.get(reverse("domicilios")).status_code, 200)
+        self.client.force_login(self.cocina)
+        self.assertEqual(self.client.get(reverse("domicilios")).status_code, 403)
+
+    def test_respaldo_admin_descarga_archivo_cifrado(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(reverse("respaldo"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.content.startswith(b"CCBK1:"))

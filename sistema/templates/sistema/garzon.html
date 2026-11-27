@@ -32,6 +32,9 @@
       <h2 class="paso"><span>3</span>Productos</h2>
       <p class="ayuda">Toca un producto para agregarlo. Usa + y − en la comanda para cambiar la cantidad.</p>
       <div class="productos" id="productos"></div>
+      <h3>Agregados opcionales</h3>
+      <p class="ayuda">Puedes sumar extras al pedido. También aparecen en la comanda de cocina.</p>
+      <div class="productos" id="agregados"></div>
     </div>
   </section>
   <aside class="comanda panel" aria-label="Comanda">
@@ -46,5 +49,6 @@
   </aside>
 </div>
 {{ productos|json_script:"datos-productos" }}
+{{ agregados|json_script:"datos-agregados" }}
 {% endblock %}
 {% block js %}<script src="{% static 'sistema/garzon.js' %}"></script>{% endblock %}

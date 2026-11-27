@@ -16,11 +16,13 @@
     {% if user.rol == 'garzon' or user.rol == 'admin' %}<a href="{% url 'garzon' %}" {% if n == 'garzon' %}class="activo" aria-current="page"{% endif %}>Pedidos</a>{% endif %}
     {% if user.rol == 'cocina' or user.rol == 'admin' %}<a href="{% url 'cocina' %}" {% if n == 'cocina' %}class="activo" aria-current="page"{% endif %}>Cocina</a>{% endif %}
     {% if user.rol == 'cajero' or user.rol == 'admin' %}<a href="{% url 'caja' %}" {% if n == 'caja' %}class="activo" aria-current="page"{% endif %}>Caja</a>{% endif %}
+    {% if user.rol == 'garzon' or user.rol == 'cajero' or user.rol == 'admin' %}<a href="{% url 'domicilios' %}" {% if n == 'domicilios' %}class="activo" aria-current="page"{% endif %}>Domicilios</a>{% endif %}
     {% if user.rol == 'admin' %}
       <a href="{% url 'productos' %}" {% if n == 'productos' %}class="activo" aria-current="page"{% endif %}>Productos</a>
       <a href="{% url 'inventario' %}" {% if n == 'inventario' %}class="activo" aria-current="page"{% endif %}>Inventario</a>
       <a href="{% url 'reportes' %}" {% if n == 'reportes' %}class="activo" aria-current="page"{% endif %}>Reportes</a>
       <a href="{% url 'auditoria' %}" {% if n == 'auditoria' %}class="activo" aria-current="page"{% endif %}>Auditoría</a>
+      <a href="{% url 'respaldo' %}" {% if n == 'respaldo' %}class="activo" aria-current="page"{% endif %}>Respaldo</a>
       <a href="{% url 'admin:index' %}">Usuarios y roles</a>
     {% endif %}
   {% endwith %}</nav>

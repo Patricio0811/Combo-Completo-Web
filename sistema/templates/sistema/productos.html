@@ -14,4 +14,5 @@
         <a class="btn chico peligro" href="{% url 'producto_eliminar' p.pk %}">Eliminar</a></td></tr>
   {% empty %}<tr><td colspan="6" class="vacio">No hay productos. Crea el primero con «Nuevo producto».</td></tr>{% endfor %}</tbody>
 </table></div>
+{% include "sistema/_agregados.html" %}
 {% endblock %}
