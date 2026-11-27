@@ -53,10 +53,6 @@ class Insumo(models.Model):
 
     class Meta:
         ordering = ["nombre"]
-        constraints = [
-            models.CheckConstraint(condition=models.Q(stock_actual__gte=0), name="insumo_stock_no_negativo"),
-            models.CheckConstraint(condition=models.Q(stock_minimo__gte=0), name="insumo_minimo_no_negativo"),
-        ]
 
     def __str__(self):
         return self.nombre
@@ -75,7 +71,7 @@ class Receta(models.Model):
 
 
 class Agregado(models.Model):
-    """Extra que se suma a un pedido (salsas, más papas, etc.). Como un Producto, consume insumos según su receta."""
+    """Extra que se suma a un pedido y consume insumos según su receta."""
     nombre = models.CharField(max_length=100)
     precio = models.DecimalField(max_digits=10, decimal_places=0)
     activo = models.BooleanField(default=True)
@@ -109,7 +105,6 @@ class Pedido(models.Model):
     total = models.DecimalField(max_digits=12, decimal_places=0, default=0)
     observaciones = models.CharField(max_length=200, blank=True)
     usuario = models.ForeignKey(Usuario, on_delete=models.PROTECT, related_name="pedidos")
-    fecha_pago = models.DateTimeField("Pagado el", null=True, blank=True)   # se llena al quedar el saldo en 0
 
     class Meta:
         ordering = ["-fecha_hora"]
@@ -147,10 +142,6 @@ class Pedido(models.Model):
     def saldo(self):
         return self.total - self.pagado()
 
-    @property
-    def esta_pagado(self):
-        return self.fecha_pago is not None
-
     def __str__(self):
         return f"Pedido #{self.pk}"
 
@@ -179,7 +170,6 @@ class DetallePedido(models.Model):
 
 
 class DetalleAgregado(models.Model):
-    """Agregado pedido dentro de un pedido (el precio queda congelado, igual que en DetallePedido)."""
     pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, related_name="agregados")
     agregado = models.ForeignKey(Agregado, on_delete=models.PROTECT)
     cantidad = models.PositiveIntegerField()

@@ -20,10 +20,6 @@
     {% endif %}
   </article>
   {% empty %}<p class="vacio">No hay pedidos con saldo pendiente.</p>{% endfor %}
-  {% if pagados %}<h3>Pagados recientemente</h3><ul class="plano">{% for p in pagados %}
-    <li>#{{ p.pk }} {{ p.canal }} · {{ p.referencia }} · ${{ p.total|clp }}
-      <span class="etq bien">Pagado</span> <span class="suave">{{ p.fecha_pago|date:"d/m H:i" }}</span></li>
-  {% endfor %}</ul>{% endif %}
 </section>
 <section class="panel">
   <h2>Cierre de caja</h2>

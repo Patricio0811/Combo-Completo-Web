@@ -13,7 +13,7 @@ from django.views.decorators.http import require_POST
 
 from . import respaldo, services
 from .models import (
-    Agregado, AlertaStock, Comanda, Insumo, Pago, Pedido, PedidoDomicilio, Producto, RegistroAuditoria, CierreCaja,
+    Agregado, AlertaStock, Comanda, Insumo, Pago, Pedido, Producto, RegistroAuditoria, CierreCaja,
 )
 from .permisos import rol_requerido
 from .services import ErrorNegocio
@@ -100,12 +100,13 @@ def _item_comanda(d):
     }
 
 
-def _item_agregado(a):
-    """Los agregados salen en la comanda como un ítem más, con el prefijo «+», y con los insumos que consumen."""
+def _item_agregado(detalle):
     return {
-        "n": f"+ {a.agregado.nombre}", "c": a.cantidad, "d": "",
-        "ins": [{"n": r.insumo.nombre, "c": _cantidad(r.cantidad_por_unidad * a.cantidad), "u": r.insumo.unidad}
-                for r in a.agregado.recetas.all()],
+        "n": f"+ {detalle.agregado.nombre}", "c": detalle.cantidad, "d": "",
+        "ins": [{"n": receta.insumo.nombre,
+                 "c": _cantidad(receta.cantidad_por_unidad * detalle.cantidad),
+                 "u": receta.insumo.unidad}
+                for receta in detalle.agregado.recetas.all()],
     }
 
 
@@ -199,10 +200,8 @@ def caja(request):
                   .filter(total__gt=F("cobrado"))
                   .select_related("pedidolocal", "pedidoretiro", "pedidodomicilio__cliente"))
     esperado = services.resumen_caja()
-    pagados = (Pedido.objects.filter(fecha_pago__isnull=False).exclude(estado="anulado")
-               .select_related("pedidolocal", "pedidoretiro", "pedidodomicilio__cliente").order_by("-fecha_pago")[:8])
     return render(request, "sistema/caja.html", {
-        "pendientes": pendientes, "pagados": pagados, "metodos": Pago.Metodo.choices,
+        "pendientes": pendientes, "metodos": Pago.Metodo.choices,
         "esperado": [(m, n, esperado[m]) for m, n in Pago.Metodo.choices],
         "total_esperado": sum(esperado.values()), "cierres": CierreCaja.objects.all()[:5],
     })
@@ -321,25 +320,12 @@ def auditoria(request):
     })
 
 
-# ---------- Domicilios: datos del cliente para quien despacha ----------
-@rol_requerido("garzon", "cajero")
-def domicilios(request):
-    """Teléfono y dirección se guardan cifrados; solo los ven garzón, cajero y administrador (no cocina).
-    Cada consulta queda en la auditoría (sin copiar los datos personales)."""
-    desde = timezone.now() - timedelta(days=1)
-    pedidos = (PedidoDomicilio.objects.exclude(estado="anulado").filter(fecha_hora__gte=desde)
-               .select_related("cliente").prefetch_related("pagos").order_by("estado", "-fecha_hora"))
-    services.auditar(request.user, "consulta_datos_domicilio", pedidos=len(pedidos))
-    return render(request, "sistema/domicilios.html", {"pedidos": pedidos})
-
-
-# ---------- Respaldo ----------
 @rol_requerido("admin")
 def respaldo_pagina(request):
     if request.method == "POST":
         contenido = respaldo.generar_respaldo()
         services.auditar(request.user, "respaldo_descargado", bytes=len(contenido))
-        resp = HttpResponse(contenido, content_type="application/octet-stream")
-        resp["Content-Disposition"] = f'attachment; filename="{respaldo.nombre_archivo()}"'
-        return resp
+        response = HttpResponse(contenido, content_type="application/octet-stream")
+        response["Content-Disposition"] = f'attachment; filename="{respaldo.nombre_archivo()}"'
+        return response
     return render(request, "sistema/respaldo.html")
